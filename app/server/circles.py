@@ -1,5 +1,6 @@
 """People and circles (people.py; owner only), stats, listening together, concerts."""
 import json
+import os
 import re
 import time
 
@@ -12,10 +13,12 @@ from aiohttp import web
 from .common import off
 
 
+CONCERTS = "/data/concerts.json"
+
 async def api_concerts(req):
     """Written weekly by the concerts job (/data/concerts.json; Ticketmaster, needs TICKETMASTER_API_KEY; the job itself is not in the repo yet)."""
     try:
-        d = json.load(open("/data/concerts.json"))
+        d = json.load(open(CONCERTS))
         today = time.strftime("%F")
         return web.json_response({"updated": d.get("updated"), "events": [e for e in d.get("events", []) if e.get("date", "") >= today]})
     except (OSError, ValueError):
@@ -68,6 +71,7 @@ async def api_people(req):
         await off(people.save, cfg)
     c = people.cfg()
     return web.json_response({"owner": c["owner"], "circles": c["circles"],
+                              "features": {"concerts": os.path.exists(CONCERTS)},    # the concerts job isn't in v0.1
                               "people": {u: {"name": p.get("name"), "scrobble_as": p.get("scrobble_as"),
                                              "own_listenbrainz": bool((p.get("listenbrainz") or {}).get("user_env"))}
                                          for u, p in c["people"].items()}})

@@ -6,7 +6,7 @@
 
   interface Person { name: string; scrobble_as?: string | null; own_listenbrainz: boolean }
   interface Circle { name: string; members: string[]; blend: number; speaker: boolean; concerts: boolean }
-  interface Cfg { owner: string; people: Record<string, Person>; circles: Record<string, Circle> }
+  interface Cfg { owner: string; people: Record<string, Person>; circles: Record<string, Circle>; features?: { concerts: boolean } }
 
   let cfg = $state<Cfg | null>(null)
   let dirty = $state(false)
@@ -70,7 +70,7 @@
           <small>{c.blend >= 0.5 ? 'household / partner: you learn from each other' : c.blend > 0 ? 'a light touch of each other' : 'friends: separate tastes, shared playlists'}</small></label>
         <div class="flags">
           <label><input type="radio" name="speaker" checked={c.speaker} onchange={() => only('speaker', id)} /> owns the speaker + wake-up music</label>
-          <label><input type="radio" name="concerts" checked={c.concerts} onchange={() => only('concerts', id)} /> concerts follow its artists</label>
+          {#if cfg.features?.concerts}<label><input type="radio" name="concerts" checked={c.concerts} onchange={() => only('concerts', id)} /> concerts follow its artists</label>{/if}
         </div>
       </div>
     {/each}

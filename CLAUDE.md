@@ -150,13 +150,10 @@ losing data.
    UI names the speaker instead of "Nest Mini"; no cast button without a speaker; status short-circuit.
    **Still to do (needs the owner's OK: muted daytime test on the Nest):** play / pause / next / seek / sleep timer /
    signed URLs on a real speaker, and discovery with `network_mode: host` (the dev stack is on a bridge network).
-7. [ ] **Degrade gracefully:** verified 2026-11-25 that the app works without ytm-embed. Still to check:
-   - without ListenBrainz;
-   - without the routines service (fine: `available: false`);
-   - without a speaker.
-   - Out-of-scope features still have live code: hide the routines UI, `/routine/play` on 8091, `/api/concerts`
-     and `"concerts": True` in `people._default()` (or remove them).
-   - Document "minimal" vs "full" setups and their RAM needs (app ~250 MB, embed ~2 GB while loaded).
+7. [x] **Degrade gracefully** (2026-11-25; `docs/setups.md`). The dev stack runs without embed, ListenBrainz,
+   routines and a speaker, and the smoke tests pass there. Out-of-scope code stays dormant: the routines UI shows
+   only with the service, `/routine/play` needs its key, concerts show only with `/data/concerts.json` (the circle
+   option too). App RAM measured: ~130 MB; embed ~2 GB (from the author's install, not re-measured here).
 8. [ ] **First run:** an in-app taste quiz (≈10 rounds of 3 songs, ❤️ what you like), so a new person doesn't
    start empty. Log the quiz's picks as impressions with outcomes so they train `learn`, not just hearts.
    The author's taste was seeded by hand in chat.
