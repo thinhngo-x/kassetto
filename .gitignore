@@ -1,0 +1,14 @@
+# data and models (personal listening data never belongs in git)
+dev-data/
+dev-models/
+data/
+*.db
+people.json
+concerts.json
+.env
+# build output / caches
+app/web/node_modules/
+app/web/dist/
+__pycache__/
+*.pyc
+CLAUDE.local.md

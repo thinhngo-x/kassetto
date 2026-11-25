@@ -1,0 +1,53 @@
+{
+  "owner": "alice",
+  "people": {
+    "alice": {
+      "name": "Alice",
+      "listenbrainz": {
+        "user_env": "LISTENBRAINZ_USER",
+        "token_env": "LISTENBRAINZ_USER_TOKEN"
+      }
+    },
+    "bob": {
+      "name": "Bob",
+      "scrobble_as": "alice"
+    },
+    "kid": {
+      "name": "Sam"
+    },
+    "carol": {
+      "name": "Carol",
+      "listenbrainz": {
+        "user_env": "LISTENBRAINZ_USER_CAROL",
+        "token_env": "LISTENBRAINZ_TOKEN_CAROL"
+      }
+    }
+  },
+  "circles": {
+    "home": {
+      "name": "Home",
+      "members": [
+        "alice",
+        "bob",
+        "kid"
+      ],
+      "blend": 0.6,
+      "speaker": true,
+      "concerts": true
+    },
+    "friends": {
+      "name": "Friends",
+      "members": [
+        "alice",
+        "carol"
+      ],
+      "blend": 0.0
+    }
+  },
+  "concerts": {
+    "city": "Your city",
+    "lat": 0.0,
+    "lon": 0.0,
+    "radius_km": 150
+  }
+}
