@@ -165,12 +165,10 @@ losing data.
    `KASSETTO_YTDLP_UPDATE=1` -> `/data/.yt-dlp` (`ytdlp_update.py`; tested on the dev stack, streaming works).
    **Still to do, needs the owner's OK:** create the repo, push, the first image build (the arm64 embed image has
    never been built), check the user compose file with the real images.
-10. [ ] **Docs** (last, because they describe decisions made in 3–9):
-    - README: what it is, screenshots, quick start, requirements, the recommender explained, comparison table.
-    - Configuration reference, FAQ, privacy (what leaves the server: YouTube requests, LRCLIB, optional
-      ListenBrainz / Ticketmaster / AutoEq).
-    - Prominent "personal use / YouTube ToS" disclaimer.
-    - Security notes: sign-in modes, what port 8091 exposes.
+10. [~] **Docs** (2026-11-25): README (what it is, the recommender, comparison, quick start, ToS warning at the
+    top), docs/ configuration, privacy (incl. covers loaded by the browser from Google), FAQ, recommender, setups,
+    sign-in, cast, upgrading. **Still to do:** screenshots (need a browser to take them), and re-check the quick
+    start once the images exist.
 
 Not in v0.1 (maybe later):
 - morning routines, i.e. the external service `routines.py` with the spoken briefing; the author's briefing uses
