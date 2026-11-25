@@ -34,7 +34,7 @@
     <div class="grab" role="presentation" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up}>
     <header>
       <button class="icon-btn" aria-label="Close player" onclick={() => ui.closeFull()}><Icon name="down" size={24} /></button>
-      <span class="where">{#if player.nest}<Icon name="speaker" size={14} /> Playing on Nest Mini{:else}Now playing
+      <span class="where">{#if player.nest}<Icon name="speaker" size={14} /> Playing on {player.speakerName}{:else}Now playing
         {#if player.eqOn}
           <button class="snd" class:off={player.output === 'off'} onclick={switchSound}
                   aria-label="Sound profile: {player.output} (tap to switch)" title="Sound profile (tap to switch)">
@@ -62,7 +62,7 @@
         <Icon name={player.playing ? 'pause' : 'play'} size={28} />
       </button>
       <button class="icon-btn big2" aria-label="Next" onclick={() => player.next()}><Icon name="next" size={28} /></button>
-      <button class="icon-btn" class:on={player.nest} aria-label={player.nest ? 'Back to phone' : 'Play on Nest'}
+      <button class="icon-btn" class:on={player.nest} aria-label={player.nest ? 'Back to phone' : `Play on ${player.speakerName}`}
               style:visibility={player.canCast ? 'visible' : 'hidden'} disabled={!player.canCast}
               onclick={() => (player.nest ? player.toPhone() : player.toNest())}><Icon name={player.nest ? 'phone' : 'speaker'} /></button>
     </div>

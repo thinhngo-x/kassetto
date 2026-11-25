@@ -69,7 +69,7 @@
           <b>{c.blend ? Math.round(c.blend * 100) + '%' : 'off'}</b>
           <small>{c.blend >= 0.5 ? 'household / partner: you learn from each other' : c.blend > 0 ? 'a light touch of each other' : 'friends: separate tastes, shared playlists'}</small></label>
         <div class="flags">
-          <label><input type="radio" name="speaker" checked={c.speaker} onchange={() => only('speaker', id)} /> owns the Nest speaker + wake-up music</label>
+          <label><input type="radio" name="speaker" checked={c.speaker} onchange={() => only('speaker', id)} /> owns the speaker + wake-up music</label>
           <label><input type="radio" name="concerts" checked={c.concerts} onchange={() => only('concerts', id)} /> concerts follow its artists</label>
         </div>
       </div>

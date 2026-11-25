@@ -44,7 +44,7 @@
     open = id; save()
   }
   async function runNow(r: Routine) {
-    try { await post(`/api/routines/${r.id}/run`); ui.say(r.briefing.on ? 'Starting: the briefing takes ~30 s to prepare' : 'Starting on the Nest…') }
+    try { await post(`/api/routines/${r.id}/run`); ui.say(r.briefing.on ? 'Starting: the briefing takes ~30 s to prepare' : 'Starting on the speaker…') }
     catch { ui.say("Couldn't start it") }
     setTimeout(load, 4000)
   }
@@ -61,7 +61,7 @@
 </script>
 
 {#if w?.available && w.allowed}
-  <div class="head"><b>Morning routines</b> <small class="muted">the briefing and music on the Nest Mini{w.circle ? ` · shared by ${w.circle}` : ''}</small>
+  <div class="head"><b>Morning routines</b> <small class="muted">the briefing and music on the speaker{w.circle ? ` · shared by ${w.circle}` : ''}</small>
     <button class="more" onclick={add}><Icon name="plus" size={16} /> Add</button></div>
   {#each w.routines as r (r.id)}
     {@const last = w.last[r.id]}

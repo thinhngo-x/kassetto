@@ -9,20 +9,21 @@ with the Default Media Receiver, so the YouTube app and its ads are never involv
   music.py next | pause | resume | stop
   music.py vol 0.4                   volume 0..1
   music.py now                       what's playing + up next
-(Copied from the author's home setup; v0.1 folds it into the app with speaker discovery.)
-A detached player process (state /tmp/nestmusic.json) feeds the Nest track by track; stream URLs are resolved
-just before each track (they expire after a few hours). Anything else casting to the Nest (say.py, the morning
-briefing, a phone) takes over and the player exits.
+Started by the app (server/cast.py), which passes the speaker, the stream base and the audio-port key in the
+environment; it runs on its own so the music keeps playing while the app restarts.
+A detached player process (state /tmp/kassetto-cast.json) feeds the speaker track by track; stream URLs are resolved
+just before each track (they expire after a few hours). Anything else casting to the speaker (a phone, another
+app) takes over and the player exits.
 """
 import json, os, signal, subprocess, sys, time, urllib.request
 
 import pychromecast
 import yt_dlp
 
-SPEAKER_IP = os.environ.get("NEST_IP", "")
-STATE = "/tmp/nestmusic.json"
+SPEAKER_IP = os.environ.get("KASSETTO_SPEAKER_HOST") or os.environ.get("NEST_IP", "")   # set by the app (server/cast.py)
+STATE = "/tmp/kassetto-cast.json"
 RADIO_MAX = 40
-STREAM_BASE = os.environ.get("MUSIC_STREAM_BASE")   # e.g. http://<this server>:8091 = Kassetto's audio-only port
+STREAM_BASE = os.environ.get("KASSETTO_STREAM_BASE") or os.environ.get("MUSIC_STREAM_BASE")   # http://<server>:8091
 STREAM_KEY = os.environ.get("KASSETTO_STREAM_KEY", "")   # set by the app (server/auth.py): signs the URLs below
 
 
@@ -119,9 +120,9 @@ def run():
         vid, title, *meta = st["queue"][i]
         st["index"] = i; save_state(st)
         try:
-            if STREAM_BASE:                                       # ytm downloads + serves it (copes with 403s)
+            if STREAM_BASE:                                       # Kassetto downloads + serves it (copes with 403s)
                 url = signed("stream", vid)
-                try:                                              # Opus (.webm) or older AAC file: ask ytm
+                try:                                              # Opus (.webm) or older AAC file: ask Kassetto
                     with urllib.request.urlopen(urllib.request.Request(url, method="HEAD"), timeout=45) as r:
                         mime = r.headers.get("Content-Type", "audio/webm").split(";")[0]
                 except Exception:
@@ -195,11 +196,11 @@ def main():
         q = resolve_queue(query, radio)
         save_state({"queue": q, "index": 0, "query": query, "pid": None})
         p = subprocess.Popen([sys.executable, os.path.abspath(__file__), "_run"], start_new_session=True,
-                             stdout=open("/tmp/nestmusic.log", "a"), stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+                             stdout=open("/tmp/kassetto-cast.log", "a"), stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
         st = load_state(); st["pid"] = p.pid; save_state(st)
         print(f"▶ {q[0][1]}" + (f"  (+{len(q) - 1} in the radio queue)" if len(q) > 1 else ""))
         return 0
-    if cmd == "play-ids":                       # an explicit queue of video ids (used by ytm's "play on Nest")
+    if cmd == "play-ids":                       # an explicit queue of video ids (used by the app's "play on speaker")
         if not rest:
             print("play-ids ID…"); return 1
         if running:
@@ -210,7 +211,7 @@ def main():
             q.append([vid, (m[0] if m and m[0] else vid), *m[1:3]])
         save_state({"queue": q, "index": 0, "query": "ids", "pid": None})
         p = subprocess.Popen([sys.executable, os.path.abspath(__file__), "_run"], start_new_session=True,
-                             stdout=open("/tmp/nestmusic.log", "a"), stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+                             stdout=open("/tmp/kassetto-cast.log", "a"), stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
         st = load_state(); st["pid"] = p.pid; save_state(st)
         print(f"▶ {len(rest)} tracks"); return 0
     if cmd == "next":

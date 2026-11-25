@@ -13,12 +13,80 @@ import library as lib
 import people
 import recommend as rec
 from aiohttp import ClientTimeout, web
-from config import EMBED_URL
+from config import EMBED_URL, env
 
 from .common import app_http, log, off
 from .streaming import CACHE, cached, start_download, stream
 
-MUSIC_PY = os.environ.get("MUSIC_PY", "/app/castplayer.py")
+MUSIC_PY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "castplayer.py")   # the detached speaker player
+STATE = "/tmp/kassetto-cast.json"                                 # written by castplayer.py
+
+
+# ---------- which speaker ----------
+# KASSETTO_SPEAKER (an address; NEST_IP before the rename) wins; else the one the owner picked in Settings from the
+# speakers found on the network (GET /api/speakers: mDNS, so Kassetto needs the host's network to see them).
+
+SPEAKER_ENV = env("SPEAKER", "") or os.environ.get("NEST_IP", "")
+
+
+def speaker():
+    """-> {"host", "name"} or None."""
+    if SPEAKER_ENV:
+        return {"host": SPEAKER_ENV, "name": env("SPEAKER_NAME", "Speaker"), "fixed": True}
+    s = lib.setting("speaker_choice", None, user="_server")
+    return s if s and s.get("host") else None
+
+
+def speaker_host():
+    s = speaker()
+    return s["host"] if s else ""
+
+
+def stream_base():
+    """Where the speaker fetches audio (port 8091 of this server, as the speaker sees it). KASSETTO_STREAM_BASE
+    (MUSIC_STREAM_BASE before the rename); else guessed from the address used to reach the speaker, which is right
+    with the host's network (network_mode: host) and wrong behind Docker's NAT: set it there."""
+    b = env("STREAM_BASE", "") or os.environ.get("MUSIC_STREAM_BASE", "")
+    if b or not speaker_host():
+        return b.rstrip("/")
+    import socket
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect((speaker_host(), 8009))
+            return f"http://{s.getsockname()[0]}:8091"
+    except OSError:
+        return ""
+
+
+def discover(timeout=5):
+    """Cast speakers answering on the local network (mDNS): [{host, name, model, uuid}]."""
+    import pychromecast
+    found, browser = pychromecast.discovery.discover_chromecasts(timeout=timeout)
+    try:
+        return sorted(({"host": c.host, "name": c.friendly_name, "model": c.model_name, "uuid": str(c.uuid)}
+                       for c in found), key=lambda d: d["name"] or "")
+    finally:
+        browser.stop_discovery()
+
+
+async def api_speakers(req):
+    """GET: the current speaker + the ones found now (owner). POST {host, name} | {host: null}: pick one (owner)."""
+    if rec.me() != people.owner():
+        raise web.HTTPForbidden(text="only the owner picks the speaker")
+    if req.method == "POST":
+        if SPEAKER_ENV:
+            raise web.HTTPConflict(text="the speaker is fixed by KASSETTO_SPEAKER")
+        b = await req.json()
+        choice = {"host": str(b["host"]), "name": str(b.get("name") or b["host"])} if b.get("host") else None
+        await off(lib.set_setting, "speaker_choice", choice, "_server")
+        with NEST_LOCK:
+            NEST["cc"] = None                                    # reconnect to the new one
+        return web.json_response({"current": choice})
+    try:
+        found = await off(discover)
+    except Exception as e:
+        log("speaker discovery failed:", repr(e)[:120]); found = []
+    return web.json_response({"current": await off(speaker), "found": found, "stream_base": await off(stream_base)})
 
 
 # ---------- Nest / Chromecast (via castplayer.py) ----------
@@ -26,12 +94,12 @@ MUSIC_PY = os.environ.get("MUSIC_PY", "/app/castplayer.py")
 def music(*args):
     from .auth import stream_key                                 # castplayer signs its audio-port URLs with it
     r = subprocess.run([sys.executable, MUSIC_PY, *args], capture_output=True, text=True, timeout=60,
-                       env={**os.environ, "KASSETTO_STREAM_KEY": stream_key()})
+                       env={**os.environ, "KASSETTO_STREAM_KEY": stream_key(), "KASSETTO_SPEAKER_HOST": speaker_host(),
+                            "KASSETTO_STREAM_BASE": stream_base()})
     return (r.stdout + r.stderr).strip()
 
 
-SPEAKER_IP = os.environ.get("NEST_IP", "")                       # discovery replaces it (milestone item 6)
-NEST = {"cc": None}
+NEST = {"cc": None, "host": None}
 NEST_LOCK = threading.Lock()
 
 
@@ -53,26 +121,26 @@ def nest_cc():
     """One persistent Cast connection for status/seek (music.py's player keeps its own)."""
     import pychromecast
     with NEST_LOCK:
-        cc = NEST["cc"]
-        if cc is None or not cc.socket_client.is_connected:
+        cc, host = NEST["cc"], speaker_host()
+        if cc is None or not cc.socket_client.is_connected or NEST["host"] != host:
             if cc is not None:
                 try:
                     cc.disconnect(timeout=2)
                 except Exception:
                     pass
-            if not SPEAKER_IP:
+            if not host:
                 raise RuntimeError("no speaker set up")
-            cc = pychromecast.get_chromecast_from_host((SPEAKER_IP, 8009, None, None, None),
+            cc = pychromecast.get_chromecast_from_host((host, 8009, None, None, None),
                                                        tries=2, timeout=8)
             cc.wait(timeout=8)
             fix_stale_status(cc.media_controller)
-            NEST["cc"] = cc
+            NEST.update(cc=cc, host=host)
         return cc
 
 
 def _nest_status():
     try:
-        st = json.load(open("/tmp/nestmusic.json"))
+        st = json.load(open(STATE))
     except (OSError, ValueError):
         st = {}
     pid = st.get("pid")
@@ -80,11 +148,11 @@ def _nest_status():
         running = bool(pid) and (os.kill(pid, 0) is None)
     except OSError:
         running = False
-    out = {"active": running, "sleep_at": NEST_SLEEP["at"] or None, "configured": bool(SPEAKER_IP)}
+    out = {"active": running, "sleep_at": NEST_SLEEP["at"] or None, "configured": bool(speaker_host())}
     if running and st.get("queue"):
         i = st.get("index", 0)
         out.update(index=i, videoId=st["queue"][i][0], title=st.get("title"))
-    if not SPEAKER_IP:                                           # nothing to ask (was an 8 s connect timeout)
+    if not out["configured"]:                                   # nothing to ask (was an 8 s connect timeout)
         return out
     try:
         cc = nest_cc(); ms = cc.media_controller.status

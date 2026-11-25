@@ -11,7 +11,7 @@ from aiohttp import ClientSession, ClientTimeout, web
 
 from . import auth
 from .autoeq import api_eq_profile, api_eq_search
-from .cast import api_nest, api_nest_sleep, api_nest_status, api_speaker, nest_stream, speaker_cfg, speaker_version
+from .cast import api_nest, api_nest_sleep, api_nest_status, api_speaker, api_speakers, nest_stream, speaker_cfg, speaker_version
 from .catalogue import (
     api_album,
     api_artist,
@@ -111,6 +111,7 @@ def main():
         web.get("/api/myplaylist", api_myplaylist), web.post(r"/api/myplaylist/{action}", api_myplaylist),
         web.get("/api/weekly", api_weekly), web.get("/api/people", api_people), web.put("/api/people", api_people), web.get("/api/concerts", api_concerts), web.get("/api/stats", api_stats), web.get("/api/spotify", api_spotify), web.post("/api/spotify", api_spotify), web.get("/api/together", api_together),
         web.get("/api/routines", api_routines), web.put("/api/routines", api_routines), web.post("/api/routines/{rid}/run", api_routines), web.get("/api/speaker", api_speaker), web.post("/api/speaker", api_speaker),
+        web.get("/api/speakers", api_speakers), web.post("/api/speakers", api_speakers),
     ])
     log(f"kassetto listening on :8090 (sign-in: {auth.MODE}, {len(people.lb_accounts())} ListenBrainz account(s)), audio-only for the Nest on :8091")
 

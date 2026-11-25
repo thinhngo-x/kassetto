@@ -17,7 +17,7 @@
       <Art src={t.thumb} size={56} />
       <div class="meta">
         <div class="t ellipsis">{t.title}</div>
-        <div class="s ellipsis">{#if player.nest}<span class="nest">Nest Mini · </span>{/if}{t.artist}</div>
+        <div class="s ellipsis">{#if player.nest}<span class="nest">{player.speakerName} · </span>{/if}{t.artist}</div>
       </div>
       <button class="icon-btn" class:on={liked} class:heart={liked} aria-label={liked ? 'Remove from liked songs' : 'Add to liked songs'} onclick={() => player.like(t)}><Icon name={liked ? 'liked' : 'like'} size={19} /></button>
     {/if}
@@ -36,8 +36,8 @@
     <Seek />
   </div>
   <div class="right">
-    {#if player.canCast}<button class="icon-btn" class:on={player.nest} title={player.nest ? 'Back to this device' : 'Play on Nest Mini'}
-            aria-label={player.nest ? 'Back to this device' : 'Play on Nest'} onclick={() => (player.nest ? player.toPhone() : player.toNest())}>
+    {#if player.canCast}<button class="icon-btn" class:on={player.nest} title={player.nest ? 'Back to this device' : `Play on ${player.speakerName}`}
+            aria-label={player.nest ? 'Back to this device' : `Play on ${player.speakerName}`} onclick={() => (player.nest ? player.toPhone() : player.toNest())}>
       <Icon name="speaker" size={19} /></button>{/if}
     <SleepButton />
     <button class="icon-btn" class:on={ui.panel === 'lyrics'} aria-label="Lyrics" title="Lyrics" onclick={() => (ui.panel = ui.panel === 'lyrics' ? null : 'lyrics')}><Icon name="lyrics" size={19} /></button>

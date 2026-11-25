@@ -63,7 +63,8 @@ app/
     mixes           autoplay, Your mix, Made for you, ListenBrainz playlists, Daily Mixes, weekly lists
     listening       events -> recsys, ListenBrainz scrobble + sync, /api/me, likes, prefs, taste, Spotify setting
     playlists, circles   your playlists; people & circles (owner only), stats, together, concerts
-    cast            Nest / Chromecast via castplayer.py, sleep timer, speaker tuning, the speaker's audio stream
+    cast            which speaker (discovery / pick / KASSETTO_SPEAKER), play via castplayer.py (a detached
+                    player process), sleep timer, speaker tuning, the speaker's audio stream
     routines        morning routines proxy (optional external service)
     autoeq, web     headphone EQ profiles; page, assets, service worker, manifest, icons
     auth            sign-in modes (KASSETTO_AUTH none / proxy / dev), the audio port's stream tokens
@@ -89,7 +90,6 @@ app/
   people.py         people + circles (taste blend, speaker owner, concerts), /data/people.json
   spotify.py        import of Spotify's "Extended streaming history" (kept apart, small capped influence)
   phonetics.py      romanized lyrics (Korean, Japanese, Chinese, other scripts)
-  castplayer.py     detached Chromecast/Nest player (copied from the homelab "nestspeak/music.py")
   embed.py          ytm-embed service: ffmpeg loudness/silence analysis, CLAP fingerprints, speaker renders
   web/              Svelte 5 + Vite PWA (views: Home, Search, Detail, Library, Settings, Stats)
 tests/unit, tests/smoke      pytest (see "Run it")
@@ -143,14 +143,13 @@ losing data.
    Port 8091: `/stream` + `/prefetch` need an HMAC token (key in kv `stream_key`; castplayer signs its URLs).
    Tested in all modes on the dev stack. Not done: an optional password for mode `none` (decide later; a proxy is
    the answer for now). Not yet tried on a real speaker (needs the owner's OK; item 6).
-6. [ ] **Cast in the app.**
-   - `castplayer.py` → the `cast` module (see 4).
-   - Discover speakers with mDNS (pychromecast discovery) and let the user pick one. mDNS doesn't cross Docker's
-     bridge network: document `network_mode: host`, and keep `NEST_IP` as a manual fallback.
-   - `MUSIC_STREAM_BASE` must be a LAN address the speaker can reach; it can't be auto-detected reliably inside a
-     container. Document it, and the audio-only port (8091).
-   - [x] `/api/nest/status` took 8 s when no speaker is configured: short-circuited (`configured: false`).
-   - Speaker tuning (embed `/speaker`) and the Nest sleep timer already exist.
+6. [~] **Cast in the app** (2026-11-25; `docs/cast.md`). Done: `server/castplayer.py` stays a detached process
+   (music survives app restarts) and gets speaker, stream base and key from the app; mDNS discovery
+   (`GET /api/speakers`) and an owner picker in Settings (kv `set:_server:speaker_choice`), `KASSETTO_SPEAKER` /
+   `NEST_IP` as a fixed override; `KASSETTO_STREAM_BASE` (`MUSIC_STREAM_BASE`), guessed with host networking;
+   UI names the speaker instead of "Nest Mini"; no cast button without a speaker; status short-circuit.
+   **Still to do (needs the owner's OK: muted daytime test on the Nest):** play / pause / next / seek / sleep timer /
+   signed URLs on a real speaker, and discovery with `network_mode: host` (the dev stack is on a bridge network).
 7. [ ] **Degrade gracefully:** verified 2026-11-25 that the app works without ytm-embed. Still to check:
    - without ListenBrainz;
    - without the routines service (fine: `available: false`);

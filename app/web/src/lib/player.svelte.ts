@@ -51,7 +51,8 @@ class Player {
   trim = $state(store.get('trimSilence', true))
   crossfade = $state(store.get('crossfade', 3))           // seconds, 0 = off
   eqOn = $state(store.get('eqOn', false))
-  canCast = $state(true)                                  // false if the speaker belongs to a circle you're not in
+  canCast = $state(false)                                 // a speaker is set up and you may use it (its circle)
+  speakerName = $state('Speaker')
   sleepAt = $state(0)                                     // sleep timer: epoch ms (0 = off); on the Nest = server's
   sleepEnd = $state(false)                                // sleep at the end of the current song
   eq = $state<EqProfile | null>(store.get('eq', null))
@@ -122,7 +123,8 @@ class Player {
     }
     this.reattachNest(!!saved?.scrobbled && saved?.vid === this.queue[this.idx]?.videoId)
     get<Record<string, number>>('/api/prefs', 0).then((p) => (this.prefs = p)).catch(() => {})
-    get<{ can_cast: boolean }>('/api/me', 0).then((m) => (this.canCast = m.can_cast !== false)).catch(() => {})
+    get<{ can_cast: boolean; speaker: string | null }>('/api/me', 0)
+      .then((m) => { this.canCast = !!m.can_cast; this.speakerName = m.speaker || 'Speaker' }).catch(() => {})
     this.mediaSession()
     window.addEventListener('pagehide', () => { this.flushSkip(); this.save() })   // closing / reloading the page
   }
@@ -276,7 +278,7 @@ class Player {
     if (this.nest) {
       this.sleepEnd = false
       post<{ at: number }>('/api/nest/sleep', m === 'end' ? { end_of_track: true } : { minutes: m })
-        .then((r) => { this.sleepAt = r.at ? r.at * 1000 : 0 }).catch(() => ui.say("Couldn't set the Nest's sleep timer"))
+        .then((r) => { this.sleepAt = r.at ? r.at * 1000 : 0 }).catch(() => ui.say("Couldn't set the speaker's sleep timer"))
     } else {
       this.sleepEnd = m === 'end'
       this.sleepAt = typeof m === 'number' && m > 0 ? Date.now() + m * 60_000 : 0
@@ -657,12 +659,12 @@ class Player {
     this.nestPaused = false
     this.el.pause()
     this.time = 0
-    ui.say('Sending to the Nest Mini…')
+    ui.say(`Sending to ${this.speakerName}…`)
     try {
       await post('/api/nest/play', { tracks: this.queue.slice(i, i + 100).map((t) => ({ videoId: t.videoId, title: t.title,
         artist: t.artist, thumb: large(t.thumb) })) })
-      ui.say('Playing on the Nest Mini')
-    } catch (e) { ui.say('Nest: ' + (e as Error).message) }
+      ui.say(`Playing on ${this.speakerName}`)
+    } catch (e) { ui.say(`${this.speakerName}: ` + (e as Error).message) }
     this.nestStarted = Date.now()
     this.nestStart()
     this.nestPoll()
@@ -697,7 +699,7 @@ class Player {
       const st = await get<NestStatus>('/api/nest/status', 0)
       if (!this.nest) return
       if (!st.active && Date.now() - this.nestStarted > 15000) {
-        this.nestFinish(true); this.nest = false; ui.say('The Nest stopped playing'); return
+        this.nestFinish(true); this.nest = false; ui.say(`${this.speakerName} stopped playing`); return
       }
       if (st.videoId && this.current && st.videoId !== this.current.videoId) {
         this.nestFinish()

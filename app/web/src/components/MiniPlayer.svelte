@@ -14,7 +14,7 @@
     <div class="meta">
       <div class="t ellipsis">{t.title}</div>
       <div class="s ellipsis">
-        {#if player.nest}<span class="nest"><Icon name="speaker" size={12} /> Nest Mini</span> · {/if}{player.buffering && !player.nest ? 'Loading…' : t.artist}
+        {#if player.nest}<span class="nest"><Icon name="speaker" size={12} /> {player.speakerName}</span> · {/if}{player.buffering && !player.nest ? 'Loading…' : t.artist}
       </div>
     </div>
     <button class="icon-btn" aria-label={player.playing ? 'Pause' : 'Play'} onclick={(e) => { e.stopPropagation(); player.toggle() }}>

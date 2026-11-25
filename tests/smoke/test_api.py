@@ -148,3 +148,27 @@ def test_audio_streams(api, a_song):
     req = urllib.request.Request(f"{BASE}/stream/{a_song['videoId']}", headers={"Range": "bytes=0-1023"})
     with urllib.request.urlopen(req, timeout=120) as r:
         assert r.status in (200, 206) and len(r.read()) > 0
+
+
+def test_no_speaker_means_no_cast_button(api):
+    me = api("GET", "/api/me").json()
+    assert me["speaker"] is None and me["can_cast"] is False
+
+
+def test_only_the_owner_picks_the_speaker(api):
+    assert api("GET", "/api/speakers", user=person()).status == 403
+    assert api("POST", "/api/speakers", {"host": "192.0.2.10"}, user=person()).status == 403
+
+
+def test_pick_a_speaker_then_none(api):
+    """With a speaker picked, people may cast and the page names it. 192.0.2.10 is a documentation address:
+    nothing is contacted."""
+    found = api("GET", "/api/speakers", timeout=20).json()
+    assert found["current"] is None and isinstance(found["found"], list)
+    try:
+        assert api("POST", "/api/speakers", {"host": "192.0.2.10", "name": "Test speaker"}).status == 200
+        me = api("GET", "/api/me").json()
+        assert me["speaker"] == "Test speaker" and me["can_cast"] is True
+    finally:
+        api("POST", "/api/speakers", {"host": None})
+    assert api("GET", "/api/me").json()["speaker"] is None

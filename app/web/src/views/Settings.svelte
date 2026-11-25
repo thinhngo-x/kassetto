@@ -1,4 +1,4 @@
-<!-- Settings: playback, sound, the Nest, people & circles (moved out of Library to keep it about music). -->
+<!-- Settings: playback, sound, the speaker, people & circles (moved out of Library to keep it about music). -->
 <script lang="ts">
   import HeadphonePicker from '../components/HeadphonePicker.svelte'
   import PeopleEditor from '../components/PeopleEditor.svelte'
@@ -8,7 +8,7 @@
   import { ui } from '../lib/ui.svelte'
   import { player, type Output } from '../lib/player.svelte'
 
-  interface Me { user: string; name: string; owner: boolean; can_cast: boolean; listenbrainz: string
+  interface Me { user: string; name: string; owner: boolean; can_cast: boolean; speaker: string | null; listenbrainz: string
     blend: { name: string; weight: number }[]; circles: { id: string; name: string; blend: number; speaker: boolean; members: { user: string; name: string }[] }[] }
   let me = $state<Me | null>(null)
   let showPeople = $state(false)
@@ -22,6 +22,23 @@
     await post('/api/speaker', patch).catch(() => ui.say("Couldn't save"))
   }
   let canCast = $derived(!!me?.can_cast)
+
+  // The speaker (owner): found on the network (mDNS), or fixed by KASSETTO_SPEAKER
+  interface Found { host: string; name: string; model: string }
+  interface Speakers { current: { host: string; name: string; fixed?: boolean } | null; found: Found[]; stream_base: string }
+  let speakers = $state<Speakers | null>(null)
+  let searching = $state(false)
+  async function findSpeakers() {
+    searching = true
+    try { speakers = await get<Speakers>('/api/speakers', 0) } catch { ui.say("Couldn't look for speakers") }
+    searching = false
+  }
+  async function pick(s: Found | null) {
+    try {
+      await post('/api/speakers', s ? { host: s.host, name: s.name } : { host: null })
+      ui.say(s ? `Speaker: ${s.name}` : 'No speaker'); await findSpeakers(); location.reload()
+    } catch { ui.say("Couldn't save") }
+  }
 </script>
 
 <div class="page">
@@ -70,19 +87,37 @@
       {#if player.output === 'headphones'}<HeadphonePicker />{/if}
     {/if}
   </section>
-  {#if canCast || spk?.allowed}
+  {#if canCast || spk?.allowed || me?.owner}
     <section>
-      <h2 class="section-title">Nest Mini</h2>
+      <h2 class="section-title">{me?.speaker ?? 'Speaker'}</h2>
+      {#if me?.owner}
+        <div class="setting">
+          <span><b>Speaker</b><br><small class="muted">{me.speaker ? `Playing on: ${me.speaker}` : 'None yet: find the Chromecast / Google Home speakers on your network'}</small></span>
+          <button class="pill ghost" onclick={findSpeakers} disabled={searching}>{searching ? 'Looking…' : 'Find speakers'}</button>
+        </div>
+        {#if speakers}
+          <div class="sub-set">
+            {#if speakers.current?.fixed}<small class="muted">Set by KASSETTO_SPEAKER on the server.</small>
+            {:else}
+              {#each speakers.found as s (s.host)}
+                <label><input type="radio" name="spk" checked={speakers.current?.host === s.host} onchange={() => pick(s)} /> {s.name} <small class="muted">{s.model} · {s.host}</small></label>
+              {:else}<small class="muted">No speaker answered. Kassetto has to share the speakers' network (Docker: network_mode: host), or set KASSETTO_SPEAKER to its address.</small>{/each}
+              {#if speakers.current}<button class="pill ghost" onclick={() => pick(null)}>Don't use a speaker</button>{/if}
+            {/if}
+            {#if speakers.current && !speakers.stream_base}<small class="muted">Set KASSETTO_STREAM_BASE (http://this-server:8091) so the speaker can fetch the music.</small>{/if}
+          </div>
+        {/if}
+      {/if}
       {#if spk?.allowed}
         <label class="setting">
-          <span><b>Speaker tuning (Nest Mini)</b><br><small class="muted">Even volume, a small-speaker EQ, clean mono mix and gentle compression on the Nest</small></span>
+          <span><b>Speaker tuning</b><br><small class="muted">Even volume, a small-speaker EQ, clean mono mix and gentle compression for a small speaker</small></span>
           <input type="checkbox" checked={spk.on} onchange={(e) => setSpk({ on: (e.currentTarget as HTMLInputElement).checked })} />
         </label>
         {#if spk.on}
           <div class="sub-set">
             <label>Bass <input type="range" min="-6" max="6" step="1" value={spk.bass} onchange={(e) => setSpk({ bass: +(e.currentTarget as HTMLInputElement).value })} /> {spk.bass > 0 ? '+' : ''}{spk.bass} dB</label>
             <label>Treble <input type="range" min="-6" max="6" step="1" value={spk.treble} onchange={(e) => setSpk({ treble: +(e.currentTarget as HTMLInputElement).value })} /> {spk.treble > 0 ? '+' : ''}{spk.treble} dB</label>
-            <small class="muted">Applies from the next song the Nest starts.</small>
+            <small class="muted">Applies from the next song the speaker starts.</small>
           </div>
         {/if}
       {/if}

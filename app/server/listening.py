@@ -9,6 +9,7 @@ import recommend as rec
 import spotify as sp
 from aiohttp import web
 
+from .cast import speaker
 from .common import log, off
 
 
@@ -31,7 +32,11 @@ async def api_event(req):
 
 
 async def api_me(req):
-    return web.json_response(await off(people.public, rec.me()))
+    me = await off(people.public, rec.me())
+    spk = await off(speaker)
+    me["speaker"] = spk["name"] if spk else None                 # cast only with a speaker set up
+    me["can_cast"] = bool(me["can_cast"] and spk)
+    return web.json_response(me)
 
 
 async def api_likes(req):

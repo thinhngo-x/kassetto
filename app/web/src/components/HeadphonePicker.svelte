@@ -53,7 +53,7 @@
   {:else if q.trim() && total}
     <p class="muted">No match among {total.toLocaleString()} headphones. Try just the model (e.g. “XM4”).</p>
   {/if}
-  <p class="note">Same model, several entries = different measurement labs; any of them is fine. Phone / browser only (the Nest plays the file as is). Takes effect from your next tap on play.</p>
+  <p class="note">Same model, several entries = different measurement labs; any of them is fine. Phone / browser only (the speaker plays the file as is). Takes effect from your next tap on play.</p>
 </div>
 
 <style>
