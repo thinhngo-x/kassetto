@@ -4,8 +4,8 @@ A self-hosted music player with a personal recommender at its core. It streams Y
 through its own server (no ads, no Google login), learns each person's taste, and explains every pick.
 Formerly the private app "ytm" in the author's homelab; this repo is its public home.
 
-- **Owner:** Duc Thinh Ngo, GitHub `thinhngo-x`. Repo: `thinhngo-x/kassetto` (**not created yet**: create or push
-  only when the owner says so).
+- **Owner:** Duc Thinh Ngo, GitHub `thinhngo-x`. Repo: `github.com/thinhngo-x/kassetto` (public; released
+  v0.1.0 and v0.1.1 on 2026-11-26). Push, tag or release only when the owner says so.
 - **Licence:** AGPL-3.0 (`LICENSE`). Keep it: pykakasi (Japanese phonetics) is GPL-3.0.
 - **Positioning:** the recommender is the headline feature. When people compare Kassetto with other players,
   open source (Navidrome, Jellyfin, Funkwhale) or commercial (Spotify, YouTube Music), the recommender should be
@@ -44,7 +44,7 @@ pytest tests/smoke                        # against the running dev stack; KASSE
 cd app && python -m recsys.synth          # synthetic listener: learned ranker vs prior, AUC (offline benchmark)
 cd app/web && npm run check && npm test && npm run build   # svelte-check, vitest (skip rules), build
 ```
-CI: `.github/workflows/ci.yml` (the same, plus the dev stack for the smoke tests). Not pushed yet.
+CI: `.github/workflows/ci.yml` (the same, plus the dev stack for the smoke tests).
 Containers run as `PUID:PGID` (default 1000:1000; `.env`, not in git, holds this machine's values).
 `KASSETTO_REGION=VN docker compose … up -d` turns the regional content on. No sign-in proxy in dev (`KASSETTO_AUTH=dev`): every request is the owner "admin". A `Remote-User` header acts as
 that user (`curl -H 'Remote-User: alice' …`); people are auto-registered on their first request. To try the real
@@ -163,8 +163,8 @@ losing data.
    started: it binds 8090/8091 on all addresses), `.github/workflows/images.yml` (ghcr, amd64 + arm64; tags ->
    versioned images; weekly rebuild of :latest with the newest yt-dlp via build arg `YTDLP`). yt-dlp at startup:
    `KASSETTO_YTDLP_UPDATE=1` -> `/data/.yt-dlp` (`ytdlp_update.py`; tested on the dev stack, streaming works).
-   **Still to do, needs the owner's OK:** create the repo, push, the first image build (the arm64 embed image has
-   never been built), check the user compose file with the real images.
+   Repo created and published by the owner (2026-11-26, tags v0.1.0, v0.1.1). **Still to do:** confirm the image
+   builds passed (incl. the arm64 embed image), check the user compose file with the real images.
 10. [~] **Docs** (2026-11-25): README (what it is, the recommender, comparison, quick start, ToS warning at the
     top), docs/ configuration, privacy (incl. covers loaded by the browser from Google), FAQ, recommender, setups,
     sign-in, cast, upgrading. **Still to do:** screenshots (need a browser to take them), and re-check the quick
