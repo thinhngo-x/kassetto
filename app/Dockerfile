@@ -1,6 +1,8 @@
 # Kassetto: self-hosted music player. Stage 1 builds the Svelte frontend (web/), stage 2 is the Python
 # backend (app.py + recsys/) serving it. yt-dlp needs a JS runtime for YouTube -> deno.
-FROM node:22.23.5-alpine AS web
+# The frontend is static files, the same on every architecture: build it once on the builder's own platform
+# (npm under arm64 emulation hangs in multi-arch builds).
+FROM --platform=$BUILDPLATFORM node:22.23.5-alpine AS web
 WORKDIR /w
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund

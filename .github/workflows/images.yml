@@ -19,6 +19,7 @@ jobs:
   image:
     if: github.repository == 'thinhngo-x/kassetto'
     runs-on: ubuntu-latest
+    timeout-minutes: 90           # an emulated arm64 step that hangs must not burn 6 h
     strategy:
       fail-fast: false
       matrix:
