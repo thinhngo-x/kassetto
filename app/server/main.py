@@ -31,6 +31,7 @@ from .common import _APP, log, off
 from .listening import api_event, api_likes, api_listen, api_me, api_prefs, api_spotify, api_taste, lb_sync_loop
 from .mixes import api_autoplay, api_foryou, api_lbplaylist, api_mix, api_weekly
 from .playlists import api_myplaylist, api_myplaylists
+from .quiz import api_quiz, api_quiz_needed
 from .routines import api_routines, routine_play
 from .streaming import CACHE, api_audio, api_prefetch, api_resolve, cached, start_download, stream
 from .web import asset, icon, index, manifest, sw
@@ -112,6 +113,7 @@ def main():
         web.get("/api/weekly", api_weekly), web.get("/api/people", api_people), web.put("/api/people", api_people), web.get("/api/concerts", api_concerts), web.get("/api/stats", api_stats), web.get("/api/spotify", api_spotify), web.post("/api/spotify", api_spotify), web.get("/api/together", api_together),
         web.get("/api/routines", api_routines), web.put("/api/routines", api_routines), web.post("/api/routines/{rid}/run", api_routines), web.get("/api/speaker", api_speaker), web.post("/api/speaker", api_speaker),
         web.get("/api/speakers", api_speakers), web.post("/api/speakers", api_speakers),
+        web.get("/api/quiz", api_quiz), web.post("/api/quiz", api_quiz), web.get("/api/quiz/needed", api_quiz_needed),
     ])
     log(f"kassetto listening on :8090 (sign-in: {auth.MODE}, {len(people.lb_accounts())} ListenBrainz account(s)), audio-only for the Nest on :8091")
 

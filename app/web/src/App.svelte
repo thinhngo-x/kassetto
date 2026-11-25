@@ -16,6 +16,7 @@
   import { ui } from './lib/ui.svelte'
   import Detail from './views/Detail.svelte'
   import Home from './views/Home.svelte'
+  import Quiz from './views/Quiz.svelte'
   import Library from './views/Library.svelte'
   import Search from './views/Search.svelte'
 
@@ -81,6 +82,7 @@
     {:else if r.name === 'library'}<Library />
     {:else if r.name === 'stats'}<Stats />
     {:else if r.name === 'settings'}<Settings />
+    {:else if r.name === 'quiz'}<Quiz />
     {:else if r.name === 'detail'}{#key r.kind + r.id}<Detail kind={r.kind} id={r.id} />{/key}
     {/if}
   </main>

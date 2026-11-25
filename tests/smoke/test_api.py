@@ -172,3 +172,28 @@ def test_pick_a_speaker_then_none(api):
     finally:
         api("POST", "/api/speakers", {"host": None})
     assert api("GET", "/api/me").json()["speaker"] is None
+
+
+def test_quiz_is_offered_to_someone_new(api):
+    assert api("GET", "/api/quiz/needed", user=person()).json()["needed"] is True
+
+
+@pytest.mark.network
+def test_quiz_rounds_and_answers(api):
+    u = person()
+    shown_all = set()
+    for n in range(1, 7):                                       # 4 wide rounds, then adaptive ones
+        r = api("GET", f"/api/quiz?round={n}", user=u, timeout=120).json()
+        songs = r["songs"]
+        assert r["round"] == n and r["total"] == 10 and len(songs) == 3, (n, songs)
+        vids = [s["videoId"] for s in songs]
+        assert not set(vids) & shown_all                        # never the same song twice
+        if n <= 4:
+            assert len({s["artist"] for s in songs}) == 3       # three genres -> three artists
+        shown_all |= set(vids)
+        liked = vids[:1]
+        assert api("POST", "/api/quiz", {"shown": vids, "liked": liked}, user=u).json()["liked"] == n
+    assert len(api("GET", "/api/prefs", user=u).json()) == 6    # the likes are real likes
+    t = api("GET", "/api/taste", user=u).json()
+    assert t["ranker"]["labelled"] >= 18                        # every shown song got an outcome
+    assert api("GET", "/api/quiz/needed", user=u).json()["needed"] is False

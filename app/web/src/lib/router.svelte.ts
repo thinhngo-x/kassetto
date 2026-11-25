@@ -7,6 +7,7 @@ export type Route =
   | { name: 'library' }
   | { name: 'stats' }
   | { name: 'settings' }
+  | { name: 'quiz' }
   | { name: 'detail'; kind: Kind; id: string }
 
 const KINDS: Kind[] = ['album', 'artist', 'playlist', 'mix', 'lbplaylist', 'versions', 'myplaylist']
@@ -19,6 +20,7 @@ export function parse(hash: string): Route {
   if (parts[0] === 'library') return { name: 'library' }
   if (parts[0] === 'stats') return { name: 'stats' }
   if (parts[0] === 'settings') return { name: 'settings' }
+  if (parts[0] === 'quiz') return { name: 'quiz' }
   if (KINDS.includes(parts[0] as Kind) && parts[1]) return { name: 'detail', kind: parts[0] as Kind, id: decodeURIComponent(parts[1]) }
   return { name: 'home' }
 }
@@ -35,6 +37,7 @@ export function href(r: Route): string {
     case 'library': return '#/library'
     case 'stats': return '#/stats'
     case 'settings': return '#/settings'
+    case 'quiz': return '#/quiz'
     case 'detail': return `#/${r.kind}/${encodeURIComponent(r.id)}`
     default: return '#/'
   }

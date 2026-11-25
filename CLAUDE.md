@@ -66,6 +66,7 @@ app/
     cast            which speaker (discovery / pick / KASSETTO_SPEAKER), play via castplayer.py (a detached
                     player process), sleep timer, speaker tuning, the speaker's audio stream
     routines        morning routines proxy (optional external service)
+    quiz            first-run taste quiz
     autoeq, web     headphone EQ profiles; page, assets, service worker, manifest, icons
     auth            sign-in modes (KASSETTO_AUTH none / proxy / dev), the audio port's stream tokens
     main            middleware (who is listening), routes, startup, ports 8090 + 8091
@@ -154,9 +155,10 @@ losing data.
    routines and a speaker, and the smoke tests pass there. Out-of-scope code stays dormant: the routines UI shows
    only with the service, `/routine/play` needs its key, concerts show only with `/data/concerts.json` (the circle
    option too). App RAM measured: ~130 MB; embed ~2 GB (from the author's install, not re-measured here).
-8. [ ] **First run:** an in-app taste quiz (≈10 rounds of 3 songs, ❤️ what you like), so a new person doesn't
-   start empty. Log the quiz's picks as impressions with outcomes so they train `learn`, not just hearts.
-   The author's taste was seeded by hand in chat.
+8. [x] **First run** (2026-11-25): taste quiz (`server/quiz.py`, `web/src/views/Quiz.svelte`, offered on Home while
+   someone has < 5 plays and < 3 likes). 10 rounds of 3: 4 wide (3 genres each), then 2 from radios of the likes
+   + 1 new genre; songs only (1.5–8 min, no mixes / compilations), one artist once. Each song goes through
+   `rank()` (ctx "quiz": impression + features); ❤️ = like, the others = "pass" for the ranker only.
 9. [ ] **Install:** `docker-compose.yml` + `.env.example` for users. Images on ghcr (`ghcr.io/thinhngo-x/kassetto`,
    `-embed`), amd64 + arm64 (the CPU torch embed image is the hard one), with a CI workflow building them.
    - **yt-dlp will break:** its pinned version stops working against YouTube within weeks or months. Plan for it:

@@ -1,12 +1,15 @@
 <script lang="ts">
   import Shelf from '../components/Shelf.svelte'
-  import { store, swr } from '../lib/api'
+  import { get, store, swr } from '../lib/api'
+  import { router } from '../lib/router.svelte'
   import type { Entry, PersonalShelf, Shelf as ShelfT, Song } from '../lib/types'
 
   let home = $state<ShelfT[]>([])
   let foryou = $state<PersonalShelf[]>([])
   let loaded = $state(false)
   const recent = store.get<Song[]>('recent', [])
+  let quiz = $state(false)                                       // new here: offer the taste quiz
+  $effect(() => { get<{ needed: boolean }>('/api/quiz/needed', 0).then((r) => (quiz = r.needed)).catch(() => {}) })
 
   $effect(() => {
     swr<PersonalShelf[]>('/api/foryou', (v) => (foryou = Array.isArray(v) && v[0]?.shelf ? v : []), 15 * 60_000)
@@ -53,6 +56,10 @@
 
 <div class="page">
   <h1 class="greet">{greet}</h1>
+  {#if quiz}
+    <button class="quizcard" onclick={() => router.go({ name: 'quiz' })}>
+      <b>New here? Tell Kassetto what you like</b><small>10 quick rounds of 3 songs, about 2 minutes</small></button>
+  {/if}
   {#each personal as s (s.shelf)}<Shelf title={s.shelf} items={s.items} />{/each}
   {#if recent.length}<Shelf title="Recently played" items={recent} />{/if}
   {#each curated.rows as s (s.title)}<Shelf title={s.title} items={s.items} />{/each}
@@ -77,4 +84,6 @@
   .title { width: 180px; height: 22px; margin: 28px 0 14px; }
   .skrow { display: flex; gap: 14px; overflow: hidden; }
   .tile { width: 156px; height: 196px; flex: none; border-radius: 10px; }
+  .quizcard { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; margin: 0 0 18px; padding: 14px 16px;
+              border-radius: 12px; border: 1px solid var(--accent); background: none; color: inherit; cursor: pointer; }
 </style>
