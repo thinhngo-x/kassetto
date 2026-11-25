@@ -145,6 +145,12 @@ def simulate(seed=0, sessions=60, learning=True, db_path=None, history_days=21, 
                     record({**song(v, cat), "event": "like"})
                 clock.advance(played + 5)
             clock.advance(12 * 3600)
+        def rec(ev):                                              # with learning off: back to the prior after each event
+            record(ev)
+            if not learning:
+                with core.db() as c:
+                    c.execute("DELETE FROM kv WHERE k=?", (f"ranker:{USER}",))
+
         finished = []
         loved = [g for g, w in listener.genre.items() if w > 0]
         for _ in range(sessions):
@@ -152,7 +158,7 @@ def simulate(seed=0, sessions=60, learning=True, db_path=None, history_days=21, 
             seed_vid = max(random.sample([v for v in vids if cat[v]["genre"] == listener.mood], 6),
                            key=lambda v: listener.utility(v, clock()))
             ev, played, _ = listener.react(seed_vid, clock())     # the song you chose yourself
-            record({**song(seed_vid, cat), "event": ev, "played": played})
+            rec({**song(seed_vid, cat), "event": ev, "played": played})
             clock.advance(played + 5)
             _, _, anchors = taste()
             anch = [radio(a, cat, 20, rng) for a in random.sample(anchors[:10], min(2, len(anchors[:10])))]
@@ -162,19 +168,16 @@ def simulate(seed=0, sessions=60, learning=True, db_path=None, history_days=21, 
             done, skips_in_row = 0, 0
             for i, p in enumerate(picks):
                 ev, played, liked = listener.react(p["videoId"], clock())
-                record({**p, "event": ev, "played": played, "duration": p["duration"]})
+                rec({**p, "event": ev, "played": played, "duration": p["duration"]})
                 if liked:
-                    record({**p, "event": "like"})
+                    rec({**p, "event": "like"})
                 done += ev == "complete"
                 clock.advance(played + 2)
                 skips_in_row = skips_in_row + 1 if ev == "skip" else 0
                 if skips_in_row >= 3:                             # had enough: leave autoplay
                     for q in picks[i + 1: i + 3]:
-                        record({**q, "event": "escape", "auto": True})
+                        rec({**q, "event": "escape", "auto": True})
                     break
-                if not learning:
-                    with core.db() as c:
-                        c.execute("DELETE FROM kv WHERE k=?", (f"ranker:{USER}",))
             finished.append(done / max(1, len(picks)))
             clock.advance(rng.uniform(5, 14) * 3600)
         with core.db() as c:

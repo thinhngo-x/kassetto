@@ -2,7 +2,7 @@
 
 Issues to file on GitHub once the repo exists (each section is one issue, ready to paste).
 
-## Recommender: learned ranker doesn't beat its prior yet; low-scored picks win through the source bandit
+## Recommender: learned ranker barely beats its prior; low-scored picks win through the source bandit
 
 *Labels: recommender, quality. Found 2026-11-25 with the synthetic listener (`python -m recsys.synth`).*
 
@@ -12,10 +12,11 @@ On the synthetic listener (6 seeds × 60 sessions, last third of the sessions):
 
 | | learned ranker | learning off (prior weights) |
 |---|---|---|
-| autoplay picks finished | 33.5 % | 33.0 % |
-| AUC on labelled picks | 0.721 (learned weights) | 0.710 (start weights) |
+| autoplay picks finished | 32.2 % | 29.7 % |
+| AUC on labelled picks | 0.706 (learned weights) | 0.698 (start weights) |
 
-The learned weights barely improve on the hand-tuned start, so learning isn't doing much yet. Things to look at:
+(Re-measured after fixing the control run, which let some events through to learning: the first numbers were
+33.5 % vs 33.0 %.) The learned weights improve only a little on the hand-tuned start: learning helps, but weakly. Things to look at:
 - learning rate / L2 pull (`LR, L2` in `recsys/learn.py`): with ~10 picks per session the weights may hardly move;
 - label grading (`LABEL`, the graded complete/partial/skip): is the signal too compressed?
 - which features carry signal: run `recsys.evaluate` per-feature AUC on the synthetic DB;
