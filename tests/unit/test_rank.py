@@ -100,3 +100,18 @@ def test_flow_never_puts_an_artist_twice_in_a_row():
         arts = [x["art"] for x in xs]
         if max(arts.count(a) for a in arts) <= (len(xs) + 1) // 2:   # possible at all
             assert all(p["art"] != q["art"] for p, q in zip(out, out[1:])), [x["art"] for x in out]
+
+
+def test_daily_groups_without_fingerprints_or_region_split_by_artist(rs, cat, clock):
+    from recsys import sound
+    with core.db() as c:
+        c.execute("DELETE FROM emb")
+    sound.EMB["ts"] = 0
+    for v in [v for v in cat if cat[v]["genre"] == 0][:24]:      # artists 0-0, 0-1, 0-2: 8 favourites each
+        events.record({**synth.song(v, cat), "event": "complete", "played": cat[v]["duration"]})
+        events.record({**synth.song(v, cat), "event": "like"})
+        clock.advance(3600)
+    groups = sound.daily_groups()
+    assert 2 <= len(groups) <= 4
+    for g in groups[:-1]:
+        assert len({cat[v]["artist"] for v in g}) == 1          # one artist per group (the last may be the rest)

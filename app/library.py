@@ -1,4 +1,4 @@
-"""ytm library features on ytm.db (same SQLite file as recommend.py):
+"""Library features (same SQLite file as the recommender):
 
   playlists   your own playlists (pl, pl_tracks): private or shared with one of your circles (people.py; every
               member may add / remove / reorder, only the owner renames / re-shares / deletes);

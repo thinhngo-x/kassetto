@@ -1,8 +1,9 @@
 """Shared state for the recommender: database, who is listening, text normalisation."""
 import json, math, os, random, re, sqlite3, threading, time, unicodedata, urllib.parse, urllib.request
 
-DB = os.environ.get("YTM_DB", "/data/ytm.db")
-OWNER = os.environ.get("YTM_OWNER", "admin")
+import config
+DB = config.DB
+OWNER = config.env("OWNER", "admin")
 import contextvars
 import people
 USER = contextvars.ContextVar("user", default=OWNER)
@@ -46,8 +47,25 @@ def migrate_users(c):
         DROP TABLE prefs; ALTER TABLE prefs_u RENAME TO prefs;""")
 
 
+# Schema version (PRAGMA user_version). Version 1 = the tables as created below (+ migrate_users, library.init,
+# learn.init: idempotent, from before versioning). A schema change = a new function in MIGRATIONS and SCHEMA + 1;
+# it runs once, in order, inside one transaction.
+SCHEMA = 1
+MIGRATIONS = {1: lambda c: None}
+
+
+def migrate(c):
+    v = c.execute("PRAGMA user_version").fetchone()[0]
+    if v > SCHEMA:
+        raise RuntimeError(f"the database is schema {v}, newer than this version of Kassetto ({SCHEMA}): "
+                           "upgrade Kassetto or restore a backup")
+    for n in range(v + 1, SCHEMA + 1):
+        MIGRATIONS[n](c)
+        c.execute(f"PRAGMA user_version = {n}")
+
+
 def init():
-    os.makedirs(os.path.dirname(DB), exist_ok=True)
+    os.makedirs(os.path.dirname(DB) or ".", exist_ok=True)
     with db() as c:
         c.executescript("""
         CREATE TABLE IF NOT EXISTS plays(id INTEGER PRIMARY KEY, ts INTEGER, video_id TEXT, title TEXT, artist TEXT,
@@ -71,6 +89,8 @@ def init():
         migrate_users(c)
     from . import learn                                          # impressions (the learning ranker)
     learn.init()
+    with db() as c:
+        migrate(c)
 
 
 def norm(s):

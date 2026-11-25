@@ -1,8 +1,8 @@
 """How well does the ranker predict what you actually finish? Offline check on your labelled picks.
 
-  docker compose exec ytm python -m recsys.evaluate [user]
+  docker compose exec kassetto python -m recsys.evaluate [user]
 
-For every pick ytm served that later got an outcome (impressions.label), compares the score the pick would get
+For every pick Kassetto served that later got an outcome (impressions.label), compares the score the pick would get
 from the starting (hand-tuned) weights, from your learned weights, and from each feature alone, against what
 happened: AUC = the chance that a pick you kept (label >= 0.5) scored higher than one you didn't (0.5 = coin flip,
 1 = perfect). Also: how the learned weights moved, and keep rate per source.

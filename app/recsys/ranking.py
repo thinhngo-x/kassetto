@@ -93,7 +93,7 @@ def rank(seed_radio, anchor_radios, cf_songs, exclude, n=25, extra=None, hour=No
                     near = members[j]; break
         scored.append({"score": score, "base": base, "v": v, "t": t, "art": arts[0] if arts else "", "arm": arm, "f": f,
                        "vec": vec, "origin": c["origin"], "near": near, "liked": pref.get(v) == 1})
-    enqueue(sorted(missing, key=lambda x: -x[1])[:30])          # ytm-embed fingerprints these over time
+    enqueue(sorted(missing, key=lambda x: -x[1])[:30])          # the embed service fingerprints these over time
     scored.sort(key=lambda x: -x["score"])
     seen_keys, uniq = set(), []                                  # same song uploaded twice -> keep the best-scored one
     for x in scored:

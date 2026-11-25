@@ -144,7 +144,7 @@
     <p class="muted together">Join a circle (family, partner, friends) and what you love in common shows up here.</p>
   {/if}
   <section>
-    <h2 class="section-title">What ytm has learned <small>your taste, as the recommender sees it</small></h2>
+    <h2 class="section-title">What Kassetto has learned <small>your taste, as the recommender sees it</small></h2>
     {#if taste}
       <div class="tcards">
         <div class="tcard">
@@ -171,8 +171,8 @@
               {#each moved.slice(0, 5) as [k, d]}
                 <div class="src"><span class="sn">{FEAT[k] ?? k}</span><span class="sb"><i style:transform="scaleX({Math.min(1, Math.abs(d) / 1.5)})" class:neg={d < 0}></i></span><span class="sv">{d > 0 ? '+' : ''}{d.toFixed(2)}</span></div>
               {/each}
-              <small class="muted">How much each signal's weight moved from where ytm started, for you{taste.session?.plays ? ` · this session: ${taste.session.plays} plays` : ''}.</small>
-            {:else}<small class="muted">It starts from ytm's built-in weights and adjusts them to you as autoplay picks get finished, skipped or passed over.</small>{/if}
+              <small class="muted">How much each signal's weight moved from where Kassetto started, for you{taste.session?.plays ? ` · this session: ${taste.session.plays} plays` : ''}.</small>
+            {:else}<small class="muted">It starts from Kassetto's built-in weights and adjusts them to you as autoplay picks get finished, skipped or passed over.</small>{/if}
           </div>
         {/if}
         <div class="tcard wide">

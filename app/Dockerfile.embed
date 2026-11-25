@@ -1,4 +1,4 @@
-# ytm-embed: CLAP sound fingerprints for ytm's recommender (see embed.py). CPU-only torch.
+# kassetto-embed: CLAP sound fingerprints for Kassetto's recommender (see embed.py). CPU-only torch.
 FROM denoland/deno:bin-2.9.8 AS deno
 FROM python:3.12-slim
 COPY --from=deno /deno /usr/local/bin/deno
@@ -6,7 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -r
 RUN pip install --no-cache-dir torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu \
  && pip install --no-cache-dir transformers==5.24.0 numpy==2.5.5 "yt-dlp[default]==2026.10.26"
 WORKDIR /app
-COPY embed.py /app/embed.py
+COPY embed.py config.py /app/
 ENV HOME=/tmp PYTHONUNBUFFERED=1 HF_HOME=/models
-USER 1004:1004
+# Runs as 1000:1000 by default; set `user:` in compose (PUID/PGID) to match the owner of the data volume.
+USER 1000:1000
 CMD ["python", "/app/embed.py"]

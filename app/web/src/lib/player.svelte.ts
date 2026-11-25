@@ -1,7 +1,7 @@
 // Playback engine. Two <audio> elements: the active one plays, the standby one pre-buffers the next track
 // (from halfway through the current one), so track changes are gapless. Also: play events for the
 // recommender, ListenBrainz scrobbles, personal Autoplay refills, the Nest hand-off with position sync.
-// Sound: per-track volume levelling (ytm-embed measures each cached song's loudness; loud masters are turned
+// Sound: per-track volume levelling (the embed service measures each cached song's loudness; loud masters are turned
 // down to -14 LUFS via el.volume, smoothed), silent lead-ins / tails skipped, optional equal-power crossfade
 // between the two elements (not between consecutive tracks of the same album: those stay gapless).
 // Headphone correction (experimental): an AutoEq profile (preamp + parametric filters) applied with Web Audio:
@@ -740,7 +740,7 @@ class Player {
   private updateSession() {
     const t = this.current
     if (!t || !('mediaSession' in navigator)) return
-    document.title = `${t.title} · ytm`
+    document.title = `${t.title} · Kassetto`
     navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: t.artist, album: t.album || '',
       artwork: t.thumb ? [{ src: large(t.thumb), sizes: '544x544' }] : [] })
   }

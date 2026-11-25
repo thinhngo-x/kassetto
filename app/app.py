@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ytm: a small self-hosted YouTube Music client (search + play in one page, no ads).
+"""Kassetto: a self-hosted music player with a personal recommender (search + play in one page, no ads).
 
 Meant to run behind a sign-in proxy (e.g. Authelia, Authentik) that sets Remote-User. Catalogue / search / radio / home feed via ytmusicapi
 (unauthenticated); audio = the plain m4a stream found by yt-dlp, proxied by this server (Range/seek supported),
@@ -17,20 +17,21 @@ import library as lib
 import people
 import spotify as sp
 import phonetics
+import region
+from config import CACHE as _CACHE, EMBED_URL, USER_AGENT, env
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MUSIC_PY = os.environ.get("MUSIC_PY", "/app/castplayer.py")
-YT = YTMusic(language=os.environ.get("YTM_LANGUAGE", "en"), location=os.environ.get("YTM_LOCATION", "FR"))
-YT_VN = YTMusic(language="en", location="VN")      # Vietnam home feed + charts (ytmusicapi has no 'vi' UI language)
-VN_CHARS = re.compile("[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]", re.I)
+YT = YTMusic(language=env("LANGUAGE", "en"), location=env("LOCATION", ""))    # "" = YouTube Music's default
+YT_REGION = YTMusic(language="en", location=region.CODE) if region.CODE else None   # KASSETTO_REGION (region.py)
 
 
 def norm_title(t):
     return re.sub(r"\W+", "", (t or "").lower())
 
 
-def vietnamese(text):
-    return bool(VN_CHARS.search(text or ""))
+def local_language(text):
+    return region.local(text)
 RADIO = {}                        # videoId -> (ts, [songs])  (1 h cache)
 
 
@@ -132,7 +133,7 @@ nhe nhang tam trang hung phan quay tre sau lang man vibe vibes mood moody haunti
 
 async def text_vec(q):
     try:
-        async with app_http().post("http://ytm-embed:8099/text", json={"q": q}, timeout=ClientTimeout(total=4)) as r:
+        async with app_http().post(f"{EMBED_URL}/text", json={"q": q}, timeout=ClientTimeout(total=4)) as r:
             return (await r.json()).get("vec")
     except Exception as e:
         log("text embedding unavailable:", repr(e)[:80]); return None
@@ -145,7 +146,7 @@ REF_PROMPTS = ["sad piano ballad", "happy upbeat pop song", "heavy metal with sc
                "lo-fi hip hop beat", "rap with heavy bass", "romantic love song", "dark ambient drone",
                "folk song with banjo", "classical string quartet", "punk rock", "soul music with gospel choir",
                "reggae", "country music", "rainy day melancholic indie", "party anthem", "soft lullaby",
-               "aggressive rock with distorted guitars", "dreamy synth pop", "traditional Vietnamese music",
+               "aggressive rock with distorted guitars", "dreamy synth pop", "traditional east asian folk music",
                "french chanson", "male vocal ballad with piano", "female vocal indie folk", "instrumental hip hop",
                "cinematic trailer music", "acoustic cafe music", "80s synthwave"]
 TEXT_MEAN = {}
@@ -281,7 +282,8 @@ HOME = {"ts": 0, "data": []}
 
 
 async def api_home(req):
-    """Vietnam sections first (charts + the Vietnamese parts of the VN home feed), then the regular feed."""
+    """With KASSETTO_REGION: that country's charts and the local-language parts of its home feed first; then the
+    regular feed."""
     if time.time() - HOME["ts"] < 1800 and HOME["data"]:
         return web.json_response(HOME["data"])
 
@@ -291,19 +293,21 @@ async def api_home(req):
         except Exception as e:
             log("home source failed:", repr(e)[:120]); return None
 
-    home, home_vn, charts = await asyncio.gather(get(YT.get_home, limit=8), get(YT_VN.get_home, limit=8),
-                                                 get(YT_VN.get_charts, country="VN"))
+    nothing = asyncio.sleep(0, None)
+    home, home_reg, charts = await asyncio.gather(
+        get(YT.get_home, limit=8),
+        get(YT_REGION.get_home, limit=8) if YT_REGION and region.LANGUAGE else nothing,
+        get(YT_REGION.get_charts, country=region.CODE) if YT_REGION else nothing)
     out = []
     if charts:
         top = clean(item({**x, "resultType": "playlist"}) for x in charts.get("videos") or [])
         top += clean(item({**x, "resultType": "artist"}) for x in (charts.get("artists") or [])[:20])
         if top:
-            out.append({"title": "Top in Vietnam", "items": top})
-    seen = set()
-    for sec in home_vn or []:
+            out.append({"title": f"Top in {region.NAME}", "items": top, "regional": True})
+    for sec in home_reg or []:
         items = clean(item(x) for x in sec.get("contents") or [])
-        if items and sum(vietnamese(i.get("title")) or vietnamese(i.get("artist") or i.get("sub")) for i in items) >= 0.4 * len(items):
-            out.append({"title": f"{sec.get('title')} · Vietnam", "items": items[:20]}); seen.add(sec.get("title"))
+        if items and sum(local_language(i.get("title")) or local_language(i.get("artist") or i.get("sub")) for i in items) >= 0.4 * len(items):
+            out.append({"title": f"{sec.get('title')} · {region.NAME}", "items": items[:20], "regional": True})
     for sec in home or []:
         items = clean(item(x) for x in sec.get("contents") or [])
         if items:
@@ -312,19 +316,21 @@ async def api_home(req):
     return web.json_response(out)
 
 
-VN_FORYOU_BY = {}                                             # user -> {"ts", "items"}
-VN_QUERIES = ["Indie Việt", "Nhạc Indie Việt chill", "Nhạc Việt buồn tâm trạng"]
+LOCAL_FORYOU_BY = {}                                          # user -> {"ts", "items"}
 
 
-async def vn_playlists():
-    """Playlists around your Vietnamese favourites (artists with Vietnamese names, by how much you like them)."""
-    VN_FORYOU = VN_FORYOU_BY.setdefault(rec.me(), {"ts": 0, "items": []})
-    if time.time() - VN_FORYOU["ts"] < 6 * 3600 and VN_FORYOU["items"]:
-        return VN_FORYOU["items"]
+async def local_playlists():
+    """Playlists around your favourite artists who sing in the region's language (by how much you like them), plus
+    the region's own searches (region.py). Empty without a region language."""
+    if not region.LANGUAGE:
+        return []
+    cache = LOCAL_FORYOU_BY.setdefault(rec.me(), {"ts": 0, "items": []})
+    if time.time() - cache["ts"] < 6 * 3600 and cache["items"]:
+        return cache["items"]
     aff, _, _ = await off(rec.taste)
     names = await off(rec.artist_names)                       # normalised -> original spelling
-    vn = [names[a] for a, sc in sorted(aff.items(), key=lambda x: -x[1]) if sc > 0 and a in names and vietnamese(names[a])][:4]
-    queries = [(a, f"based on {a}") for a in vn] + [(q, q) for q in VN_QUERIES]
+    fav = [names[a] for a, sc in sorted(aff.items(), key=lambda x: -x[1]) if sc > 0 and a in names and local_language(names[a])][:4]
+    queries = [(a, f"based on {a}") for a in fav] + [(q, q) for q in region.INFO.get("queries", [])]
     results = await asyncio.gather(*[off(YT.search, q, filter="playlists", limit=6) for q, _ in queries], return_exceptions=True)
     lists, seen = [], set()
     for (q, why), res in zip(queries, results):
@@ -333,11 +339,11 @@ async def vn_playlists():
             it = item({**x, "resultType": "playlist"})
             t = (it or {}).get("title") or ""
             if it and it["id"] not in seen and norm_title(t) not in seen:
-                seen.update({it["id"], norm_title(t)}); lst.append({**it, "sub": f"Vietnamese · {why}"})
-        lists.append(lst[:2] if q in vn else lst[:3])
+                seen.update({it["id"], norm_title(t)}); lst.append({**it, "sub": f"{region.LANGUAGE} · {why}"})
+        lists.append(lst[:2] if q in fav else lst[:3])
     items = [x for row in itertools.zip_longest(*lists) for x in row if x]   # round-robin: artists and moods mixed
-    VN_FORYOU.update(ts=time.time(), items=items[:16])
-    return VN_FORYOU["items"]
+    cache.update(ts=time.time(), items=items[:16])
+    return cache["items"]
 
 
 async def radio(vid, limit=50):
@@ -400,7 +406,7 @@ FORYOU_BY = {}                                                # user -> {"ts", "
 
 
 async def api_foryou(req):
-    """The 'Made for you' shelf: your mix (from ytm's own taste model) + ListenBrainz playlists made for you."""
+    """The 'Made for you' shelf: your mix (from Kassetto's own taste model) + ListenBrainz playlists made for you."""
     FORYOU = FORYOU_BY.setdefault(rec.me(), {"ts": 0, "items": []})
     if time.time() - FORYOU["ts"] > 1800:
         items = []
@@ -419,12 +425,14 @@ async def api_foryou(req):
             items.append({"type": "lbplaylist", "id": p["id"], "title": p["title"], "sub": "ListenBrainz · " + p["date"],
                           "thumb": "/icon-512.png"})
         FORYOU.update(ts=time.time(), items=items)
+    out = [{"shelf": "Made for you", "items": FORYOU["items"]}]
     try:
-        vn = await vn_playlists()
+        local = await local_playlists()
     except Exception as e:
-        log("vietnamese playlists failed:", repr(e)[:120]); vn = []
-    return web.json_response([{"shelf": "Made for you", "items": FORYOU["items"]},
-                              {"shelf": "Vietnamese for you", "items": vn}])
+        log("regional playlists failed:", repr(e)[:120]); local = []
+    if local:
+        out.append({"shelf": f"{region.LANGUAGE} for you", "items": local, "regional": True})
+    return web.json_response(out)
 
 
 async def make_mix(n=40, exclude=frozenset(), radio_len=30):
@@ -592,7 +600,7 @@ AUDIO_OF = {}                     # videoId -> the audio-track id of the same so
 
 
 def audio_version(vid):
-    """For radio seeds picked by ytm (autoplay, Your mix): YouTube Music's radio follows the seed's type (a music
+    """For radio seeds picked by Kassetto (autoplay, Your mix): YouTube Music's radio follows the seed's type (a music
     video seed -> ~all music videos, with intros / skits / video mixes; an audio-track seed -> 48/50 audio tracks,
     measured 2026-11-24). So a music-video seed is swapped for its audio track when one clearly matches: same
     title, artist, duration +-15 s and the same version words. What the user chose to play is never swapped."""
@@ -720,7 +728,7 @@ def _lyrics_ytm_song(title, artist, duration):
 def _lyrics_lrclib(title, artist, duration):
     t, a = song_title(title, artist), first_artist(artist)
     q = urllib.parse.urlencode({"track_name": t, "artist_name": a})
-    req = urllib.request.Request(f"https://lrclib.net/api/search?{q}", headers={"User-Agent": "ytm-selfhosted/1.0"})
+    req = urllib.request.Request(f"https://lrclib.net/api/search?{q}", headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=12) as r:
         res = json.load(r)
     good = []
@@ -849,8 +857,8 @@ FMT_OPUS = "251/bestaudio[acodec=opus]/bestaudio[ext=m4a]/bestaudio"
 FMT_AAC = "bestaudio[ext=m4a]/bestaudio[acodec^=mp4a]/bestaudio"
 
 
-CACHE = os.environ.get("YTM_CACHE", "/data/cache")
-CACHE_MAX = int(os.environ.get("YTM_CACHE_MB", "3000")) << 20
+CACHE = _CACHE
+CACHE_MAX = int(env("CACHE_MB", "3000")) << 20
 DLS = {}                          # videoId -> Download (in progress or failed recently)
 
 
@@ -899,9 +907,9 @@ class Download:
 
 
 def request_analysis(vid):
-    """ytm-embed measures loudness + silent edges of a freshly cached track (~1-2 s) -> table audio."""
+    """The embed service measures loudness + silent edges of a freshly cached track (~1-2 s) -> table audio."""
     try:
-        urllib.request.urlopen(urllib.request.Request("http://ytm-embed:8099/analyze", data=json.dumps({"vid": vid}).encode(),
+        urllib.request.urlopen(urllib.request.Request(f"{EMBED_URL}/analyze", data=json.dumps({"vid": vid}).encode(),
                                                       headers={"Content-Type": "application/json"}), timeout=60).read()
     except Exception as e:
         log("analysis request failed", vid, str(e)[:100])
@@ -909,7 +917,7 @@ def request_analysis(vid):
 
 # Volume levelling: like YouTube / Spotify, loud masters are turned down to TARGET_LUFS; quieter ones play
 # as they are (attenuation only, so no clipping and no Web Audio needed: the player just scales el.volume).
-TARGET_LUFS = float(os.environ.get("YTM_TARGET_LUFS", "-14"))
+TARGET_LUFS = float(env("TARGET_LUFS", "-14"))
 
 
 async def api_audio(req):
@@ -928,7 +936,7 @@ async def api_audio(req):
         return out
     try:
         return web.json_response(await off(q))
-    except sqlite3.OperationalError:                             # ytm-embed hasn't created the table yet
+    except sqlite3.OperationalError:                             # the embed service hasn't created the table yet
         return web.json_response({"default": 0.6})
 
 
@@ -1129,7 +1137,7 @@ async def api_listen(req):
     if not token or not b.get("artist") or not b.get("title"):
         return web.json_response({"ok": False, "reason": "no token or metadata"})
     meta = {"artist_name": b["artist"], "track_name": b["title"],
-            "additional_info": {"media_player": "ytm (self-hosted)", "submission_client": "ytm",
+            "additional_info": {"media_player": "Kassetto", "submission_client": "kassetto",
                                 "music_service": "music.youtube.com",
                                 "origin_url": f"https://music.youtube.com/watch?v={b.get('videoId', '')}"}}
     if b.get("album"):
@@ -1263,8 +1271,8 @@ async def api_nest(req):
 # ---------- your playlists (library.py) ----------
 
 def _pl_detail(p):
-    sub = ("Made by ytm, new every Monday" if p["kind"] == "weekly" else
-           "Made by ytm, new every day · " + ((lib.setting("daily_subs", {}) or {}).get(p["id"]) or "your taste") if p["kind"] == "daily" else
+    sub = ("Made by Kassetto, new every Monday" if p["kind"] == "weekly" else
+           "Made by Kassetto, new every day · " + ((lib.setting("daily_subs", {}) or {}).get(p["id"]) or "your taste") if p["kind"] == "daily" else
            (f"Shared with {p['circle_name']}" if p["shared"] else "Your playlist") + ("" if p["mine"] else f" · by {people.name(p['owner'])}"))
     return {"title": p["name"], "sub": sub, "thumb": p["tracks"][0]["thumb"] if p["tracks"] else None,
             "tracks": p["tracks"], "meta": {k: p[k] for k in ("id", "owner", "shared", "circle", "circle_name", "kind", "mine")}}
@@ -1324,7 +1332,8 @@ async def api_concerts(req):
         return web.json_response({"updated": None, "events": []})
 
 # ---------- Daily Mixes ----------
-# One mix per taste group (rec.daily_groups: the sound model's clusters, else Vietnamese / other), rebuilt once a
+# One mix per taste group (rec.daily_groups: the sound model's clusters, else
+# by language with a region language, else by artist), rebuilt once a
 # day in the background (the previous day's mixes are served meanwhile): ~1 of 3 songs is one of your favourites
 # from that group, the rest are new picks from radios of 3 of them, ranked by your taste. Stored as playlists
 # kind 'daily', ids dm-<user>-<n>; the subtitle (its main artists) in setting daily_subs.
@@ -1560,10 +1569,10 @@ async def api_nest_sleep(req):
 
 
 # ---------- morning routines (an optional external routines service) ----------
-# The schedule (briefing + music) lives in a separate routines service (YTM_ROUTINES_URL); ytm only plays the music
-# step (POST :8091/routine/play, key-checked) and shows the routines in Settings when YTM_ROUTINES_URL is set.
-ROUTINES_URL = os.environ.get("YTM_ROUTINES_URL", "")
-ROUTINES_KEY_FILE = os.environ.get("YTM_ROUTINES_KEY", "/run/routines.key")
+# The schedule (briefing + music) lives in a separate routines service (KASSETTO_ROUTINES_URL); Kassetto only plays
+# the music step (POST :8091/routine/play, key-checked) and shows the routines in Settings when the URL is set.
+ROUTINES_URL = env("ROUTINES_URL", "")
+ROUTINES_KEY_FILE = env("ROUTINES_KEY", "/run/routines.key")
 
 
 def _routines_key():
@@ -1687,7 +1696,7 @@ async def api_routines(req):
                               "people": {u: people.name(u) for u in people.cfg()["people"]}})
 
 
-# ---------- speaker tuning for the Nest (rendered by ytm-embed: ffmpeg) ----------
+# ---------- speaker tuning for the Nest (rendered by the embed service: ffmpeg) ----------
 # The Nest plays files from the audio-only port, so it gets a version tuned for a small mono speaker: levelled
 # to SPEAKER["lufs"], sub-bass removed, warmth / less harshness, the circle's bass & treble, gentle compression,
 # proper mono mix (embed.py speaker_version, ~3-5 s per song). The next song is prepared while one plays; a song
@@ -1714,7 +1723,7 @@ async def speaker_version(vid, cfg):
                     await asyncio.sleep(0.2)
             if not cached(vid)[0]:
                 return None
-            async with app_http().post("http://ytm-embed:8099/speaker", json={"vid": vid, "p": p},
+            async with app_http().post(f"{EMBED_URL}/speaker", json={"vid": vid, "p": p},
                                        timeout=ClientTimeout(total=120)) as r:
                 f = (await r.json()).get("file")
             return os.path.join(CACHE, f) if f else None
@@ -1793,7 +1802,7 @@ async def icon(req):
     return web.Response(body=ICONS[n], content_type="image/png", headers={"Cache-Control": "max-age=604800"})
 
 
-MANIFEST = {"name": "ytm", "short_name": "ytm", "start_url": "/", "scope": "/", "display": "standalone",
+MANIFEST = {"name": "Kassetto", "short_name": "Kassetto", "start_url": "/", "scope": "/", "display": "standalone",
             "background_color": "#0c0c10", "theme_color": "#0c0c10",
             "icons": [{"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
                       {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}]}
@@ -1805,7 +1814,7 @@ async def manifest(req):
 
 # ---------- AutoEq headphone correction (experimental) ----------
 # AutoEq (github.com/jaakkopasanen/AutoEq, MIT): measured correction curves for ~8,800 headphones, as a preamp +
-# 10 parametric filters each. ytm fetches only AutoEq's public files (index weekly, a profile when picked), cached
+# 10 parametric filters each. Kassetto fetches only AutoEq's public files (index weekly, a profile when picked), cached
 # in /data/autoeq; nothing about the listener is sent. The player applies the filters with Web Audio.
 AEQ_RAW = "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/results/"
 AEQ_DIR = "/data/autoeq"
@@ -1815,7 +1824,7 @@ _AEQ_FILT = re.compile(r"Filter \d+: ON (PK|LSC|HSC|LS|HS) Fc ([\d.]+) Hz Gain (
 
 
 def _aeq_fetch(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "ytm-selfhosted/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=20) as r:
         return r.read().decode()
 
@@ -1964,7 +1973,7 @@ def main():
         web.get("/api/weekly", api_weekly), web.get("/api/people", api_people), web.put("/api/people", api_people), web.get("/api/concerts", api_concerts), web.get("/api/stats", api_stats), web.get("/api/spotify", api_spotify), web.post("/api/spotify", api_spotify), web.get("/api/together", api_together),
         web.get("/api/routines", api_routines), web.put("/api/routines", api_routines), web.post("/api/routines/{rid}/run", api_routines), web.get("/api/speaker", api_speaker), web.post("/api/speaker", api_speaker),
     ])
-    log(f"ytm listening on :8090 ({len(people.lb_accounts())} ListenBrainz account(s)), audio-only for the Nest on :8091")
+    log(f"kassetto listening on :8090 ({len(people.lb_accounts())} ListenBrainz account(s)), audio-only for the Nest on :8091")
 
     async def prefetch_plain(req):
         vid = req.match_info["vid"]

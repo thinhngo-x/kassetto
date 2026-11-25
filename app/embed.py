@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""ytm-embed: sound fingerprints for ytm's recommender (CLAP, laion/larger_clap_music, CPU).
+"""kassetto-embed: sound fingerprints for Kassetto's recommender (CLAP, laion/clap-htsat-unfused, CPU).
 
 Each track -> 3 x 10 s clips (25 / 50 / 75 % of the song) -> CLAP audio embedding (512-d, L2-normalised, mean of
-the clips) -> table emb in /data/ytm.db. Sources, in priority order:
-  1. tracks in ytm's audio cache (/data/cache) that have no embedding yet (no download needed)
-  2. emb_queue: candidates ytm saw without an embedding (radio items etc.) -> downloaded with yt-dlp into a temp
+the clips) -> table emb in the app's database. Sources, in priority order:
+  1. tracks in the app's audio cache (/data/cache) that have no embedding yet (no download needed)
+  2. emb_queue: candidates the app saw without an embedding (radio items etc.) -> downloaded with yt-dlp into a temp
      file, embedded, deleted. Rate-limited (QUEUE_GAP s apart, QUEUE_PER_DAY) so YouTube isn't hammered.
 Also measures every cached track for the player (table audio, no model needed, ~1-2 s per song): EBU R128
 integrated loudness + true peak (volume levelling) and where the sound starts / ends (silence trimming,
-crossfades). ytm asks for it right after a download (POST /analyze); the main loop backfills the rest.
-Runs niced with 2 torch threads so the TTS / other services stay responsive.
+crossfades). The app asks for it right after a download (POST /analyze); the main loop backfills the rest.
+Runs niced with 2 torch threads so other services stay responsive.
 """
 import os, sqlite3, subprocess, tempfile, threading, time
 
@@ -17,8 +17,7 @@ LOCK = threading.Lock()                # one torch call at a time (audio loop vs
 
 import numpy as np
 
-DB = os.environ.get("YTM_DB", "/data/ytm.db")
-CACHE = os.environ.get("YTM_CACHE", "/data/cache")
+from config import CACHE, DB
 # laion/clap-htsat-unfused: larger_clap_music was tried first, but its text tower is collapsed (every description
 # -> the same vector, cosine 0.999), so text<->audio search could not work and its audio side was weaker too.
 MODEL = os.environ.get("CLAP_MODEL", "laion/clap-htsat-unfused")
@@ -256,7 +255,7 @@ def download(vid, d):
 
 
 def serve_text(clap, port=8099):
-    """Internal HTTP endpoint for ytm (network music_ytm only): POST /text {"q": "..."} -> {"vec": [...]}."""
+    """Internal HTTP endpoint for the app (keep it on an internal network): POST /text {"q": "..."} -> {"vec": [...]}."""
     import http.server, json
 
     class H(http.server.BaseHTTPRequestHandler):

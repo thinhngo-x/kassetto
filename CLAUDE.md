@@ -32,7 +32,7 @@ Formerly the private app "ytm" in the author's homelab; this repo is its public 
 docker compose -f docker-compose.dev.yml up -d --build                 # app only (works without fingerprints)
 docker compose -f docker-compose.dev.yml --profile embed up -d --build # + sound fingerprints (CLAP, 2 GB RAM)
 curl http://127.0.0.1:18090/api/me                                     # {"user": "admin", "owner": true, …}
-docker compose -f docker-compose.dev.yml exec ytm python -m recsys.evaluate
+docker compose -f docker-compose.dev.yml exec kassetto python -m recsys.evaluate
 ```
 Tests and lint (Python 3.12 with `pip install -r requirements-dev.txt`, or in a `python:3.12-slim` container):
 ```
@@ -43,7 +43,8 @@ cd app && python -m recsys.synth          # synthetic listener: learned ranker v
 cd app/web && npm run check && npm test && npm run build   # svelte-check, vitest (skip rules), build
 ```
 CI: `.github/workflows/ci.yml` (the same, plus the dev stack for the smoke tests). Not pushed yet.
-No sign-in proxy in dev: every request is the owner "admin". A `Remote-User` header acts as that user
+Containers run as `PUID:PGID` (default 1000:1000; `.env`, not in git, holds this machine's values).
+`KASSETTO_REGION=VN docker compose … up -d` turns the regional content on. No sign-in proxy in dev: every request is the owner "admin". A `Remote-User` header acts as that user
 (`curl -H 'Remote-User: alice' …`); people are auto-registered on their first request.
 
 ## Layout
@@ -67,6 +68,8 @@ app/
     store, report   small tables; /api/taste
     evaluate        `python -m recsys.evaluate [user]`: AUC of start vs learned weights, per feature, per source
     synth           synthetic catalogue + listener with a hidden taste, run through rank -> record -> learn
+  config.py         env(): KASSETTO_<NAME>, else the old YTM_<NAME>; DB path, embed URL (also in the embed image)
+  region.py         optional KASSETTO_REGION: charts, local-language feed/shelf, Daily Mix language split
   recommend.py      compatibility shim (`import recommend as rec`)
   library.py        playlists, weekly / daily lists, stats, per-user settings (kv)
   people.py         people + circles (taste blend, speaker owner, concerts), /data/people.json
@@ -78,7 +81,8 @@ app/
 tests/unit, tests/smoke      pytest (see "Run it")
 docker-compose.dev.yml
 ```
-Data (`/data`): `ytm.db` (SQLite: plays, prefs, signals, tracks, emb, impressions, pl/pl_tracks, kv, lyrics,
+Data (`/data`): `kassetto.db` (`ytm.db` on installs from before the rename; SQLite, `PRAGMA user_version` =
+`recsys.core.SCHEMA`, migrations in `core.MIGRATIONS`: plays, prefs, signals, tracks, emb, impressions, pl/pl_tracks, kv, lyrics,
 audio, spotify_plays, cf_map), `cache/` (audio LRU), `people.json`, `autoeq/`.
 
 How things fit (more detail in the docstrings):
@@ -110,23 +114,13 @@ losing data.
      L2, label grading, and which features carry signal.
    - Within an arm, rank() takes the best-scored candidate however low that score is: a Thompson draw for "cf"
      served five songs from a genre the listener always skips. Consider a score floor or arm-relative caps.
-3. [ ] **De-homelab + rename.**
-   - `ytm` → `kassetto` in the UI title, manifest, service-worker cache names, container/service names, docs, log
-     lines and UI copy (`PeopleEditor.svelte` names Authelia). Keep reading the old `YTM_*` variables as fallbacks
-     for the author's install.
-   - Hardcoded `http://ytm-embed:8099` (3× in app.py) → `KASSETTO_EMBED_URL`.
-   - Decide on `ytm.db` and `/tmp/nestmusic.json`: keep the names or rename them with a migration.
-   - Regional content: the Vietnam feed (`YT_VN`, `location="VN"`), *Top in Vietnam*, *Vietnamese for you* and
-     the Vietnamese-language heuristics become an optional `KASSETTO_REGION` (e.g. `VN`), off by default. The
-     home page curation (`web/src/views/Home.svelte`) must work without it. Also:
-     - `YTM_LOCATION` defaults to `"FR"` (app.py:23): needs a neutral default;
-     - the vibe examples include "traditional Vietnamese music";
-     - the Daily Mix fallback without fingerprints splits Vietnamese vs the rest (recsys/sound.py, app.py
-       `daily_groups`). It needs a neutral fallback (e.g. artist clusters), not just "off".
-   - Container user: `USER 1004:1004` → configurable (PUID/PGID) or a fixed non-root user with documented
-     volume ownership.
-   - [x] Bug: `/api/me` said ListenBrainz "as admin" with no account configured; now "off" (2026-11-25).
-   - Schema versioning (`PRAGMA user_version` + migrations) before anyone else installs it.
+3. [x] **De-homelab + rename** (2026-11-25). `ytm` → Kassetto everywhere user-facing; `config.env()` reads
+   `KASSETTO_*` then `YTM_*`; `KASSETTO_EMBED_URL`; `kassetto.db` with fallback to an existing `ytm.db`;
+   `KASSETTO_REGION` (region.py, off by default; Home.svelte keys on a `regional` flag, not on "Vietnam");
+   `KASSETTO_LOCATION` defaults to YouTube's own; neutral vibe prompts; Daily Mix fallback by artist; images run as
+   1000:1000 with compose `user:` (PUID/PGID); ListenBrainz "off" bug; schema versioning. What an old install must
+   check: `docs/upgrading-from-ytm.md`. Kept on purpose: the stored value `plays.source='ytm'`, the API field
+   `ytm_plays`. Left for item 6 (Cast): `NEST_IP`, `MUSIC_STREAM_BASE`, `MUSIC_PY`, `/tmp/nestmusic.json`.
 4. [ ] **Split app.py** into modules (streaming, catalogue, mixes, cast, people, settings), as was done for recsys.
    Before Cast, so `castplayer.py` folds into a `cast` module and not into app.py.
 5. [ ] **Sign-in modes**, documented:

@@ -24,8 +24,8 @@ export interface Item {
 
 export type Entry = Song | Item
 
-export interface Shelf { title: string; items: Entry[] }
-export interface PersonalShelf { shelf: string; items: Entry[] }
+export interface Shelf { title: string; items: Entry[]; regional?: boolean }
+export interface PersonalShelf { shelf: string; items: Entry[]; regional?: boolean }
 
 export interface Detail {
   title: string

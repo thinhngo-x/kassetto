@@ -1,12 +1,12 @@
-"""Old Spotify listening history (Spotify's "Extended streaming history" export), kept apart from ytm's plays.
+"""Old Spotify listening history (Spotify's "Extended streaming history" export), kept apart from Kassetto's plays.
 
 It is old (mostly 2019-2022), so it never drives today's taste on its own:
   * search: songs played >= 2x show up under "From your library" (matched to YouTube Music on demand);
-  * taste: a small, capped boost (<= one recent finished play) ONLY for artists you already play in ytm,
+  * taste: a small, capped boost (<= one recent finished play) ONLY for artists you already play in Kassetto,
     never a new artist (switch: setting `spotify_prior`, Stats -> Spotify years);
   * Forgotten favourites: <= 3 songs played >= 30x, rotating weekly;
   * stats: "Spotify years".
-Import: `docker compose exec -T ytm python spotify.py import <user> < rows.json` (podcasts, incognito plays and
+Import: `docker compose exec -T kassetto python spotify.py import <user> < rows.json` (podcasts, incognito plays and
 plays < 30 s are dropped before; only ts/title/artist/album/ms are stored, no IPs or devices).
 Matches to YouTube Music are cached in cf_map under `sp:<title>|<artist>` (video id NULL = no confident match).
 """
@@ -71,8 +71,8 @@ def artist_hours(user):
 
 
 def prior(aff, user):
-    """Boost artists you ALREADY like in ytm by your old Spotify hours: +0.25·ln(1+h), capped at 1.0
-    (about one recent finished play). Artists ytm hasn't seen you play get nothing."""
+    """Boost artists you ALREADY like in Kassetto by your old Spotify hours: +0.25·ln(1+h), capped at 1.0
+    (about one recent finished play). Artists Kassetto hasn't seen you play get nothing."""
     import library
     if not library.setting("spotify_prior", True, user=user):
         return aff
@@ -106,7 +106,7 @@ def search(q, user, n=4):
         for t in qt:
             best = max((1.0 if h == t else 0.85 if h.startswith(t) and len(t) >= 2 else
                         difflib.SequenceMatcher(None, t, h).ratio() for h in hay), default=0)
-            hit += best if best >= 0.85 else 0                   # stricter than ytm's own library: 5,000 old songs
+            hit += best if best >= 0.85 else 0                   # stricter than Kassetto's own library: 5,000 old songs
         if hit / len(qt) >= 0.8:
             out.append((hit / len(qt) + 0.01 * min(5, s["plays"] / 10), s))
     return sorted(out, key=lambda x: -x[0])[:n]

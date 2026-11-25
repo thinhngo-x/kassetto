@@ -18,20 +18,20 @@
   const ROWS: { title: string; match: RegExp; only?: string[]; max: number }[] = [
     { title: 'Quick picks', match: /quick picks|song mixes|mixed for you|listen again/i, only: ['song'], max: 20 },
     { title: 'Trending songs', match: /trending songs|top songs|trending/i, only: ['song'], max: 15 },
-    { title: 'Playlists for you', match: /featured playlists|top in vietnam|for you/i, only: ['playlist'], max: 12 },
+    { title: 'Playlists for you', match: /featured playlists|^top in |for you/i, only: ['playlist'], max: 12 },
     { title: 'New releases', match: /new releases|new albums/i, only: ['album', 'single', 'playlist'], max: 12 },
-    { title: 'Top artists in Vietnam', match: /top in vietnam|top artists/i, only: ['artist'], max: 15 },
+    { title: 'Top artists', match: /^top in |top artists/i, only: ['artist'], max: 15 },
   ]
   const key = (e: Entry) => ('videoId' in e && e.videoId) || ('id' in e && e.id) || e.title
   let showMore = $state(false)
   let curated = $derived.by(() => {
     const used = new Set<string>(), shown = new Set<string>()      // feed shelves used / items already on a row
     const out: ShelfT[] = []
-    const vn = foryou.find((s) => /vietnamese/i.test(s.shelf))?.items ?? []
+    const local = foryou.find((s) => s.regional)?.items ?? []      // KASSETTO_REGION's language shelf, if any
     for (const r of ROWS) {
       const src = home.filter((s) => r.match.test(s.title))
       const lists = src.map((s) => s.items.filter((e) => !r.only || r.only.includes(e.type)))
-      if (r.title === 'Playlists for you') lists.unshift(vn)        // your Vietnamese picks first
+      if (r.title === 'Playlists for you') lists.unshift(local)     // your local-language picks first
       const items: Entry[] = []
       for (let i = 0; items.length < r.max && lists.some((l) => i < l.length); i++)
         for (const l of lists) {
@@ -45,7 +45,7 @@
       .map((s) => ({ ...s, items: s.items.filter((e) => !shown.has(key(e))) })).filter((s) => s.items.length >= 3)
     return { rows: out, rest }
   })
-  let personal = $derived(foryou.filter((s) => !/vietnamese/i.test(s.shelf)))
+  let personal = $derived(foryou.filter((s) => !s.regional))
 
   const h = new Date().getHours()
   const greet = h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'

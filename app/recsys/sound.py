@@ -5,14 +5,14 @@ import numpy as np
 from .core import *  # noqa
 from .taste import taste
 
-# ---------- sound model (CLAP embeddings from ytm-embed) ----------
+# ---------- sound model (CLAP embeddings from the embed service) ----------
 
 
 EMB = {"ts": 0, "vecs": {}}            # video_id -> float32 unit vector (refreshed every 60 s)
 
 
 def track_meta_put(songs):
-    """Remember metadata of songs ytm has seen, so embedded tracks can be offered later."""
+    """Remember metadata of songs Kassetto has seen, so embedded tracks can be offered later."""
     rows = [(t["videoId"], t.get("title"), t.get("artist"), t.get("album"), t.get("thumb"), t.get("duration"))
             for t in songs if t.get("videoId")]
     if rows:
@@ -159,13 +159,11 @@ def cluster_seeds(anchors, k_each=1):
     return seeds
 
 
-VI_CHARS = re.compile(r"[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]", re.I)
-
-
 def daily_groups(max_groups=4, min_size=3):
     """Your favourites split into taste groups for the Daily Mixes: [[video id, ...], ...], biggest first.
-    Groups = the sound model's clusters (members nearest the centre first); without a sound model yet, the
-    favourites split by language (Vietnamese titles/artists vs the rest)."""
+    Groups = the sound model's clusters (members nearest the centre first). Without a sound model yet: split by
+    language when KASSETTO_REGION has one (local-language titles/artists vs the rest), else one group per favourite
+    artist with enough songs (the rest in a last group)."""
     m = sound_model()
     if m and len(m["clusters"]) >= 2:
         E = embeddings()
@@ -178,7 +176,18 @@ def daily_groups(max_groups=4, min_size=3):
     with db() as c:
         meta = {v: f"{t} {a}" for v, t, a in c.execute(
             f"SELECT video_id, title, artist FROM tracks WHERE video_id IN ({','.join('?' * len(fav))})", fav)} if fav else {}
-    vi = [v for v in fav if VI_CHARS.search(meta.get(v, ""))]
-    other = [v for v in fav if v not in set(vi)]
-    groups = [g for g in (vi, other) if len(g) >= min_size]
-    return sorted(groups, key=len, reverse=True) or ([fav] if len(fav) >= min_size else [])
+    import region
+    if region.LANGUAGE:
+        loc = [v for v in fav if region.local(meta.get(v, ""))]
+        groups = [g for g in (loc, [v for v in fav if v not in set(loc)]) if len(g) >= min_size]
+        return sorted(groups, key=len, reverse=True) or ([fav] if len(fav) >= min_size else [])
+    with db() as c:
+        artist = {v: (split_artists(a) or [""])[0] for v, a in c.execute(
+            f"SELECT video_id, artist FROM tracks WHERE video_id IN ({','.join('?' * len(fav))})", fav)} if fav else {}
+    by = {}
+    for v in fav:                                                 # favourites stay in taste order within a group
+        by.setdefault(artist.get(v, ""), []).append(v)
+    big = sorted((g for a, g in by.items() if a and len(g) >= min_size), key=len, reverse=True)[: max_groups - 1]
+    rest = [v for v in fav if not any(v in g for g in big)]
+    groups = big + ([rest] if len(rest) >= min_size else [])
+    return groups or ([fav] if len(fav) >= min_size else [])

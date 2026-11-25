@@ -60,7 +60,7 @@
 <div class="app" class:has-player={!!player.current} class:queue-open={ui.wide && !!ui.panel}>
   {#if ui.wide}
     <aside class="side">
-      <div class="logo"><span class="dot"><Icon name="play" size={16} /></span> ytm</div>
+      <div class="logo"><span class="dot"><Icon name="play" size={16} /></span> Kassetto</div>
       <nav>
         {#each tabs as t}
           <a href="#/" class:on={r.name === t.name} onclick={(e) => { e.preventDefault(); router.go(t.to) }}><Icon name={t.icon} /> {t.label}</a>

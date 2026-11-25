@@ -5,16 +5,18 @@
 # Open http://127.0.0.1:18090 (no sign-in proxy in dev: you are the owner "admin").
 name: kassetto-dev
 
+# Containers run as PUID:PGID (default 1000:1000): the owner of ./dev-data. Put PUID=/PGID= in .env if yours differ.
 services:
-  ytm:
+  kassetto:
     build: ./app
     image: kassetto:dev
     container_name: kassetto-dev
     init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
     environment:
       TZ: UTC
-      YTM_OWNER: admin
-      YTM_LOCATION: US
+      KASSETTO_OWNER: admin
+      KASSETTO_REGION: ${KASSETTO_REGION:-}         # e.g. VN (region.py); empty = off
       MUSIC_STREAM_BASE: http://127.0.0.1:18091
     ports:
       - "127.0.0.1:18090:8090"
@@ -26,7 +28,7 @@ services:
     security_opt: ["no-new-privileges:true"]
     mem_limit: 512m
 
-  ytm-embed:                      # the app looks for this service name
+  kassetto-embed:                 # the app looks for this name (KASSETTO_EMBED_URL to change it)
     profiles: [embed]
     build:
       context: ./app
@@ -34,6 +36,7 @@ services:
     image: kassetto-embed:dev
     container_name: kassetto-dev-embed
     init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
     volumes:
       - ./dev-data:/data
       - ./dev-models:/models

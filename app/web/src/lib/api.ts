@@ -7,7 +7,7 @@ const inflight = new Map<string, Promise<unknown>>()
 const MEM_MAX = 120
 
 function sessionExpired() {
-  const k = 'ytm-reload'
+  const k = 'kassetto-reload'
   const last = Number(sessionStorage.getItem(k) || 0)
   if (Date.now() - last > 30_000) {           // at most one reload per 30 s (no loops)
     sessionStorage.setItem(k, String(Date.now()))

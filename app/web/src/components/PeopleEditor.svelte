@@ -37,7 +37,7 @@
 
 {#if cfg}
   <div class="ed">
-    <h3>People <small>everyone Authelia lets into ytm appears here after their first visit</small></h3>
+    <h3>People <small>everyone who signs in appears here after their first visit</small></h3>
     {#each ids(cfg.people) as u (u)}
       {@const p = cfg.people[u]}
       <div class="person">

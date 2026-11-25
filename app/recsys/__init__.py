@@ -1,4 +1,4 @@
-"""recsys: ytm's personal recommender (package). Modules:
+"""recsys: Kassetto's personal recommender (package). Modules:
   core          database, who is listening (people / circles), normalisation, listen_weight
   events        what you do -> plays / prefs / signals, boredom
   taste         long-term taste: artist affinity, per-track scores, anchors (decayed, time of day)
@@ -20,9 +20,9 @@ liked) -> learned score, reshaped by boredom -> Thompson-sampled sources with di
 
 Original overview:
 
-Signals (SQLite /data/ytm.db):
-  plays    every track ytm played: complete / partial / skip (+ seconds played), and ListenBrainz listens
-           (Spotify, Navidrome, imports) pulled by sync_listenbrainz()  -> source 'ytm' | 'lb'
+Signals (SQLite /data/kassetto.db, ytm.db before the rename):
+  plays    every track Kassetto played: complete / partial / skip (+ seconds played), and ListenBrainz listens
+           (Spotify, Navidrome, imports) pulled by sync_listenbrainz()  -> source 'ytm' (= played here; the stored value predates the rename) | 'lb'
   prefs    ❤️ liked (+1) / hidden from recommendations (-1, that song only) per video id
   cf_map   ListenBrainz CF recommendation (recording MBID) -> YouTube Music video id
 Candidates: radio of the seed track (rank-weighted), radio of 1-2 "anchor" favourites from the history,

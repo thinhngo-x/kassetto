@@ -112,7 +112,7 @@
       {#each Array(6) as _}<div class="skel skrow"></div>{/each}
     {:else if f === 'all'}
       {#if all.intent === 'vibe' && all.vibe?.length}
-        <h2 class="section-title">Matches the vibe <small>from songs ytm has listened to</small></h2>
+        <h2 class="section-title">Matches the vibe <small>from songs Kassetto has listened to</small></h2>
         <div class="acts"><button class="pill" onclick={() => (fromSearch(), player.playList(all.vibe!, 0))}><Icon name="play" size={18} /> Play these</button></div>
         {#each all.vibe.slice(0, 8) as t, i (t.videoId + i)}<SongRow song={t} onplay={() => (fromSearch(), player.playList(all.vibe!, i))} />{/each}
       {/if}

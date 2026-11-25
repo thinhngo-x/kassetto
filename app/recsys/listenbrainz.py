@@ -15,7 +15,7 @@ def _lb(path, params=None, token=None):
 
 def sync_listenbrainz(max_pages=20):
     """Pull new listens of every own ListenBrainz account (people.json) into plays (source 'lb', user = that
-    person). Listens ytm scrobbled itself are skipped (already in plays). Returns how many were added."""
+    person). Listens Kassetto scrobbled itself are skipped (already in plays). Returns how many were added."""
     added = 0
     for person, lb_user, token in people.lb_accounts():
         added += _sync_lb_account(person, lb_user, token, max_pages)
@@ -37,7 +37,7 @@ def _sync_lb_account(person, lb_user, token, max_pages):
         with LOCK, db() as c:
             for l in ls:
                 m = l["track_metadata"]
-                if (m.get("additional_info") or {}).get("submission_client") == "ytm":
+                if (m.get("additional_info") or {}).get("submission_client") in ("kassetto", "ytm"):   # + before the rename
                     continue                                   # our own scrobbles: already in plays
                 cur = c.execute("INSERT OR IGNORE INTO plays(ts,video_id,title,artist,album,duration,played,event,source,user)"
                                 " VALUES(?,?,?,?,?,?,?,?, 'lb', ?)", (l["listened_at"], None, m.get("track_name"),

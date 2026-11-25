@@ -1,6 +1,6 @@
-// ytm service worker: hashed /assets/* cache-first (instant start), the page itself network-first
-// (so Authelia's login redirect still works) with the cached copy as offline fallback. No API/audio caching.
-const V = 'ytm-v2'
+// Kassetto service worker: hashed /assets/* cache-first (instant start), the page itself network-first
+// (so a sign-in proxy's login redirect still works) with the cached copy as offline fallback. No API/audio caching.
+const V = 'kassetto-v1'                                // activate drops every other cache (incl. old 'ytm-*')
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (e) => e.waitUntil((async () => {
   for (const k of await caches.keys()) if (k !== V) await caches.delete(k)

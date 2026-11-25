@@ -1,6 +1,6 @@
-"""People and circles: who uses ytm and what they share.
+"""People and circles: who uses Kassetto and what they share.
 
-Anyone Authelia lets into ytm (group `music`) is a *person*, auto-registered on first visit with their own,
+Anyone the sign-in proxy lets in is a *person*, auto-registered on first visit with their own,
 separate taste. *Circles* (a household, a couple, friends…) group people; each circle has:
 
   blend    0..1: how much the other members' listening counts in each member's taste (0 = taste stays personal;
@@ -13,27 +13,29 @@ ListenBrainz per person: `"listenbrainz": {"user_env": "...", "token_env": "..."
 variables in the .env file), or `"scrobble_as": "<person>"` = scrobble into that person's account (merged taste,
 e.g. a partner without an account), or nothing = not scrobbled.
 
-Stored in /data/people.json (it holds names: keep it out of git). Edited in ytm (owner only:
+Stored in /data/people.json (it holds names: keep it out of git). Edited in Kassetto (owner only:
 Settings → People & circles) or by hand; reloaded when the file changes.
 """
 import json, os, threading, time
 
-PATH = os.environ.get("YTM_PEOPLE", "/data/people.json")
-OWNER_ENV = os.environ.get("YTM_OWNER", "admin")
+from config import env
+
+PATH = env("PEOPLE", "/data/people.json")
+OWNER_ENV = env("OWNER", "admin")
 _LOCK = threading.Lock()
 _C = {"mtime": None, "cfg": None}
 
 
 def _default():
     """First start: reproduce the original two-person setup (owner + one partner, blend 0.6, merged LB)."""
-    partner = os.environ.get("YTM_PARTNER", "")
-    people = {OWNER_ENV: {"name": os.environ.get("YTM_OWNER_NAME", OWNER_ENV),
+    partner = env("PARTNER", "")
+    people = {OWNER_ENV: {"name": env("OWNER_NAME", OWNER_ENV),
                           "listenbrainz": {"user_env": "LISTENBRAINZ_USER", "token_env": "LISTENBRAINZ_USER_TOKEN"}}}
     circles = {}
     if partner:
-        people[partner] = {"name": os.environ.get("YTM_PARTNER_NAME", partner), "scrobble_as": OWNER_ENV}
+        people[partner] = {"name": env("PARTNER_NAME", partner), "scrobble_as": OWNER_ENV}
         circles["home"] = {"name": "Home", "members": [OWNER_ENV, partner],
-                           "blend": float(os.environ.get("YTM_PARTNER_WEIGHT", "0.6")), "speaker": True, "concerts": True}
+                           "blend": float(env("PARTNER_WEIGHT", "0.6")), "speaker": True, "concerts": True}
     else:
         circles["home"] = {"name": "Home", "members": [OWNER_ENV], "blend": 0.6, "speaker": True, "concerts": True}
     return {"owner": OWNER_ENV, "people": people, "circles": circles,
@@ -79,7 +81,7 @@ def name(u):
 
 
 def register(u, display=None):
-    """First visit of someone Authelia let in: a person with their own taste, in no circle yet."""
+    """First visit of someone the sign-in proxy let in: a person with their own taste, in no circle yet."""
     c = cfg()
     if u in c["people"]:
         if display and c["people"][u].get("name") in (None, u):

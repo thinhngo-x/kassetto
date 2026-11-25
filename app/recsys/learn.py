@@ -1,11 +1,11 @@
 """The ranker learns from you: per-person feature weights, updated online from what happens to each pick.
 
-Every pick ytm serves (autoplay, mixes) is logged in table `impressions` with the features it was scored on.
+Every pick Kassetto serves (autoplay, mixes) is logged in table `impressions` with the features it was scored on.
 When its outcome arrives (finished, half-heard, skipped, jumped past in Up next, left behind when you went off
 autoplay, liked, picked from Up next), the pick gets a label 0..1 and the weights take one logistic-regression
 step towards predicting it: w += lr * ((y - p) * f - l2 * (w - prior)).
 
-The prior = the hand-tuned weights ytm started with, and the L2 pull towards it keeps a few odd evenings from
+The prior = the hand-tuned weights Kassetto started with, and the L2 pull towards it keeps a few odd evenings from
 undoing them: with little data the ranker behaves as before, with more it becomes yours. Weights are clipped,
 stored per person in kv `ranker:<user>`; /api/taste shows them next to the prior; `python -m recsys.evaluate`
 measures how well they (and each feature alone) predict what you finished.

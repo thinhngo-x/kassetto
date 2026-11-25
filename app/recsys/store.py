@@ -29,7 +29,7 @@ def artist_names():
 
 
 def liked_tracks():
-    """👍 songs, newest first, with whatever metadata ytm has seen."""
+    """👍 songs, newest first, with whatever metadata Kassetto has seen."""
     with db() as c:
         rows = c.execute("""SELECT p.video_id, COALESCE(t.title, p.title), COALESCE(t.artist, p.artist), t.album, t.thumb,
                                    t.duration FROM prefs p LEFT JOIN tracks t ON t.video_id = p.video_id
