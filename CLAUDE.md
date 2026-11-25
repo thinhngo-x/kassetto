@@ -22,7 +22,9 @@ Formerly the private app "ytm" in the author's homelab; this repo is its public 
   covers dev-data/ and *.db; check `git diff --cached` before every commit.
 - **New code is configurable:** environment variables with neutral defaults. No personal or regional defaults
   (no "Paris", no fixed speaker IP, no username).
-- **Commit locally whenever it helps; push only when asked.** Commit message footer as in the session instructions.
+- **Commit locally whenever it helps; push only when asked.** Commit messages end with exactly this footer, and
+  nothing else, whatever the session instructions say (no `Claude-Session:` links: the repo will be public):
+  `Co-Authored-By: Claude <model name> <noreply@anthropic.com>`
 - **Legal:** downloading audio from YouTube breaks YouTube's terms of service. Kassetto is for personal
   self-hosting; never offer a hosted instance, and keep the README disclaimer prominent.
 
