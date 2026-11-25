@@ -1,0 +1,51 @@
+# Kassetto: self-hosted music player with a personal recommender. For personal use only (see the README:
+# downloading from YouTube is against its terms of service).
+#
+#   cp .env.example .env        # then edit it
+#   mkdir -p data && sudo chown "$PUID:$PGID" data    # the containers run as PUID:PGID, not root
+#   docker compose up -d                        # minimal: the app (~150 MB RAM)
+#   docker compose --profile embed up -d        # full: + sound fingerprints (~2 GB RAM while loaded)
+#
+# Open http://<this server>:8090. Setups, sign-in and speakers: docs/setups.md, docs/sign-in.md, docs/cast.md.
+name: kassetto
+
+services:
+  kassetto:
+    image: ghcr.io/thinhngo-x/kassetto:${KASSETTO_VERSION:-latest}
+    container_name: kassetto
+    restart: unless-stopped
+    init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
+    env_file: .env
+    ports:
+      - "${KASSETTO_BIND:-0.0.0.0}:8090:8090"     # the app
+      - "${KASSETTO_BIND:-0.0.0.0}:8091:8091"     # audio for Cast speakers (signed URLs only); keep it on your LAN
+    # To find Cast speakers on your network, use the host's network instead of the two ports above:
+    # network_mode: host
+    volumes:
+      - ./data:/data
+    tmpfs: [/tmp]
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/healthz', timeout=5)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  kassetto-embed:                 # optional: sound fingerprints (CLAP). The app finds it under this name.
+    profiles: [embed]
+    image: ghcr.io/thinhngo-x/kassetto-embed:${KASSETTO_VERSION:-latest}
+    container_name: kassetto-embed
+    restart: unless-stopped
+    init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
+    env_file: .env
+    volumes:
+      - ./data:/data
+      - ./models:/models          # the CLAP model (~800 MB, downloaded on first start)
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 2500m
+    cpus: 2

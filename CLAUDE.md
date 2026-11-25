@@ -159,11 +159,12 @@ losing data.
    someone has < 5 plays and < 3 likes). 10 rounds of 3: 4 wide (3 genres each), then 2 from radios of the likes
    + 1 new genre; songs only (1.5–8 min, no mixes / compilations), one artist once. Each song goes through
    `rank()` (ctx "quiz": impression + features); ❤️ = like, the others = "pass" for the ranker only.
-9. [ ] **Install:** `docker-compose.yml` + `.env.example` for users. Images on ghcr (`ghcr.io/thinhngo-x/kassetto`,
-   `-embed`), amd64 + arm64 (the CPU torch embed image is the hard one), with a CI workflow building them.
-   - **yt-dlp will break:** its pinned version stops working against YouTube within weeks or months. Plan for it:
-     Renovate/scheduled rebuilds, plus an opt-in upgrade-at-start or a documented manual upgrade.
-   - **Publishing needs the owner's OK.**
+9. [~] **Install** (2026-11-25): `docker-compose.yml` + `.env.example` (validated with `docker compose config`, not
+   started: it binds 8090/8091 on all addresses), `.github/workflows/images.yml` (ghcr, amd64 + arm64; tags ->
+   versioned images; weekly rebuild of :latest with the newest yt-dlp via build arg `YTDLP`). yt-dlp at startup:
+   `KASSETTO_YTDLP_UPDATE=1` -> `/data/.yt-dlp` (`ytdlp_update.py`; tested on the dev stack, streaming works).
+   **Still to do, needs the owner's OK:** create the repo, push, the first image build (the arm64 embed image has
+   never been built), check the user compose file with the real images.
 10. [ ] **Docs** (last, because they describe decisions made in 3–9):
     - README: what it is, screenshots, quick start, requirements, the recommender explained, comparison table.
     - Configuration reference, FAQ, privacy (what leaves the server: YouTube requests, LRCLIB, optional

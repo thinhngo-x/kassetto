@@ -18,6 +18,7 @@ LOCK = threading.Lock()                # one torch call at a time (audio loop vs
 import numpy as np
 
 from config import CACHE, DB
+import ytdlp_update  # noqa: F401,E402  (KASSETTO_YTDLP_UPDATE)
 # laion/clap-htsat-unfused: larger_clap_music was tried first, but its text tower is collapsed (every description
 # -> the same vector, cosine 0.999), so text<->audio search could not work and its audio side was weaker too.
 MODEL = os.environ.get("CLAP_MODEL", "laion/clap-htsat-unfused")

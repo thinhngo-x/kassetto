@@ -11,10 +11,11 @@ FROM denoland/deno:bin-2.9.8 AS deno
 
 FROM python:3.12-slim
 COPY --from=deno /deno /usr/local/bin/deno
-RUN pip install --no-cache-dir "yt-dlp[default]==2026.10.26" ytmusicapi==1.12.4 aiohttp==3.14.5 numpy==2.5.5 \
+ARG YTDLP="yt-dlp[default]==2026.10.26"
+RUN pip install --no-cache-dir "$YTDLP" ytmusicapi==1.12.4 aiohttp==3.14.5 numpy==2.5.5 \
       PyChromecast==13.1.0 korean-romanizer==0.28.0 pypinyin==0.55.0 pykakasi==2.3.0 anyascii==0.3.3
 WORKDIR /app
-COPY app.py config.py region.py recommend.py library.py people.py spotify.py phonetics.py /app/
+COPY app.py config.py region.py ytdlp_update.py recommend.py library.py people.py spotify.py phonetics.py /app/
 COPY recsys /app/recsys
 COPY server /app/server
 COPY --from=web /w/dist /app/static

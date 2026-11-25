@@ -18,6 +18,7 @@ services:
       KASSETTO_OWNER: admin
       KASSETTO_AUTH: ${KASSETTO_AUTH:-dev}   # dev: Remote-User trusted from anywhere, none = admin. Never in a real install
       KASSETTO_TRUSTED_PROXIES: ${KASSETTO_TRUSTED_PROXIES:-}   # for trying KASSETTO_AUTH=proxy
+      KASSETTO_YTDLP_UPDATE: ${KASSETTO_YTDLP_UPDATE:-}         # 1: newest yt-dlp into dev-data/.yt-dlp at start
       KASSETTO_REGION: ${KASSETTO_REGION:-}         # e.g. VN (region.py); empty = off
       MUSIC_STREAM_BASE: http://127.0.0.1:18091
     ports:
