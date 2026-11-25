@@ -83,47 +83,76 @@ How things fit (more detail in the docstrings):
 ## Milestone 1: publish v0.1
 
 Decided: name **Kassetto**, AGPL-3.0, repo under `thinhngo-x`, **Cast/Nest is in v0.1**.
+Order (reviewed 2026-11-25): safety net first, refactors before features, docs last.
+
+**Release gate for v0.1:** on a clean machine, fresh clone → `docker compose up` → taste quiz → sensible
+recommendations within 10 minutes, without ytm-embed. And the author's install switches to the images without
+losing data.
 
 1. [x] Clean repo: code only, scrubbed of personal data, AGPL-3.0 `LICENSE`, own history (2026-11-25).
-2. [ ] **De-homelab + rename.**
-   - `ytm` → `kassetto` in the UI title, manifest, service-worker cache names, container/service names,
-     docs and log lines. Keep reading the old `YTM_*` variables as fallbacks for the author's install.
+2. [ ] **Safety net** (all local; pushing CI needs the owner's OK):
+   - API smoke tests against the dev stack;
+   - a synthetic listener / seed dataset (dev-data has 0 plays and 0 impressions, so `recsys.evaluate` and recsys
+     tests have nothing to run on). It serves the unit tests, the evaluation and the quiz work;
+   - unit tests for recsys (rank invariants, learn updates, session, skip rules);
+   - ruff, frontend build + svelte-check, a GitHub Actions workflow.
+3. [ ] **De-homelab + rename.**
+   - `ytm` → `kassetto` in the UI title, manifest, service-worker cache names, container/service names, docs, log
+     lines and UI copy (`PeopleEditor.svelte` names Authelia). Keep reading the old `YTM_*` variables as fallbacks
+     for the author's install.
+   - Hardcoded `http://ytm-embed:8099` (3× in app.py) → `KASSETTO_EMBED_URL`.
+   - Decide on `ytm.db` and `/tmp/nestmusic.json`: keep the names or rename them with a migration.
    - Regional content: the Vietnam feed (`YT_VN`, `location="VN"`), *Top in Vietnam*, *Vietnamese for you* and
      the Vietnamese-language heuristics become an optional `KASSETTO_REGION` (e.g. `VN`), off by default. The
-     home page curation (`web/src/views/Home.svelte`) must work without it.
+     home page curation (`web/src/views/Home.svelte`) must work without it. Also:
+     - `YTM_LOCATION` defaults to `"FR"` (app.py:23): needs a neutral default;
+     - the vibe examples include "traditional Vietnamese music";
+     - the Daily Mix fallback without fingerprints splits Vietnamese vs the rest (recsys/sound.py, app.py
+       `daily_groups`). It needs a neutral fallback (e.g. artist clusters), not just "off".
    - Container user: `USER 1004:1004` → configurable (PUID/PGID) or a fixed non-root user with documented
      volume ownership.
-   - Bug: `/api/me` says ListenBrainz "as admin" when no account is configured (should say "off").
-3. [ ] **Cast in the app.**
-   - Fold `castplayer.py` into the app.
-   - Discover speakers with mDNS (pychromecast discovery) instead of `NEST_IP`, and let the user pick one.
-   - `/api/nest/status` takes 8 s when no speaker is configured: short-circuit it.
-   - The audio-only port (8091) must stay reachable by the speakers; document it.
-   - Speaker tuning (embed `/speaker`) and the Nest sleep timer already exist.
-4. [ ] **Sign-in modes**, documented:
-   - (a) single user, no proxy;
-   - (b) behind an auth proxy (Authelia, Authentik, oauth2-proxy). Configurable header name and trusted proxy
-     networks; reject the `Remote-User` header from anywhere else.
+   - [x] Bug: `/api/me` said ListenBrainz "as admin" with no account configured; now "off" (2026-11-25).
+   - Schema versioning (`PRAGMA user_version` + migrations) before anyone else installs it.
+4. [ ] **Split app.py** into modules (streaming, catalogue, mixes, cast, people, settings), as was done for recsys.
+   Before Cast, so `castplayer.py` folds into a `cast` module and not into app.py.
+5. [ ] **Sign-in modes**, documented:
+   - (a) single user, no proxy: ignore `Remote-User` entirely. Say plainly that anyone who reaches the port is the
+     owner (optional password?);
+   - (b) behind an auth proxy (Authelia, Authentik, oauth2-proxy). Configurable header name, and **required**
+     trusted proxy networks; reject the header from anywhere else. Both ports bind 0.0.0.0 today.
    - Today the header is trusted blindly, and no header = owner.
-5. [ ] **Install:** `docker-compose.yml` + `.env.example` for users. Images on ghcr (`ghcr.io/thinhngo-x/kassetto`,
-   `-embed`), with a CI workflow building them. **Publishing needs the owner's OK.**
-6. [ ] **Degrade gracefully:** verified 2026-11-25 that the app works without ytm-embed. Still to check:
+   - **Audio-only port 8091 has no sign-in at all**: anyone on the LAN can hit `/stream/{vid}` and `/prefetch/{vid}`
+     and make the server download from YouTube. At a minimum, serve only tracks already cached or queued for the
+     speaker; better, a per-session token in the stream URL.
+6. [ ] **Cast in the app.**
+   - `castplayer.py` → the `cast` module (see 4).
+   - Discover speakers with mDNS (pychromecast discovery) and let the user pick one. mDNS doesn't cross Docker's
+     bridge network: document `network_mode: host`, and keep `NEST_IP` as a manual fallback.
+   - `MUSIC_STREAM_BASE` must be a LAN address the speaker can reach; it can't be auto-detected reliably inside a
+     container. Document it, and the audio-only port (8091).
+   - `/api/nest/status` takes 8 s when no speaker is configured: short-circuit it.
+   - Speaker tuning (embed `/speaker`) and the Nest sleep timer already exist.
+7. [ ] **Degrade gracefully:** verified 2026-11-25 that the app works without ytm-embed. Still to check:
    - without ListenBrainz;
    - without the routines service (fine: `available: false`);
    - without a speaker.
-   Document "minimal" vs "full" setups and their RAM needs (app ~250 MB, embed ~2 GB while loaded).
-7. [ ] **First run:** an in-app taste quiz (≈10 rounds of 3 songs, ❤️ what you like), so a new person doesn't
-   start empty. The author's taste was seeded by hand in chat.
-8. [ ] **Docs:**
-   - README: what it is, screenshots, quick start, requirements, the recommender explained, comparison table.
-   - Configuration reference, FAQ, privacy (what leaves the server: YouTube requests, LRCLIB, optional
-     ListenBrainz / Ticketmaster / AutoEq).
-   - Prominent "personal use / YouTube ToS" disclaimer.
-9. [ ] **Tests + CI:**
-   - API smoke tests against the dev stack;
-   - unit tests for recsys (rank invariants, learn updates, session, skip rules);
-   - lint (ruff), frontend build + svelte-check, in GitHub Actions.
-10. [ ] **Split app.py** into modules (streaming, catalogue, mixes, cast, people, settings), as was done for recsys.
+   - Out-of-scope features still have live code: hide the routines UI, `/routine/play` on 8091, `/api/concerts`
+     and `"concerts": True` in `people._default()` (or remove them).
+   - Document "minimal" vs "full" setups and their RAM needs (app ~250 MB, embed ~2 GB while loaded).
+8. [ ] **First run:** an in-app taste quiz (≈10 rounds of 3 songs, ❤️ what you like), so a new person doesn't
+   start empty. Log the quiz's picks as impressions with outcomes so they train `learn`, not just hearts.
+   The author's taste was seeded by hand in chat.
+9. [ ] **Install:** `docker-compose.yml` + `.env.example` for users. Images on ghcr (`ghcr.io/thinhngo-x/kassetto`,
+   `-embed`), amd64 + arm64 (the CPU torch embed image is the hard one), with a CI workflow building them.
+   - **yt-dlp will break:** its pinned version stops working against YouTube within weeks or months. Plan for it:
+     Renovate/scheduled rebuilds, plus an opt-in upgrade-at-start or a documented manual upgrade.
+   - **Publishing needs the owner's OK.**
+10. [ ] **Docs** (last, because they describe decisions made in 3–9):
+    - README: what it is, screenshots, quick start, requirements, the recommender explained, comparison table.
+    - Configuration reference, FAQ, privacy (what leaves the server: YouTube requests, LRCLIB, optional
+      ListenBrainz / Ticketmaster / AutoEq).
+    - Prominent "personal use / YouTube ToS" disclaimer.
+    - Security notes: sign-in modes, what port 8091 exposes.
 
 Not in v0.1 (maybe later):
 - morning routines, i.e. the external service `routines.py` with the spoken briefing; the author's briefing uses

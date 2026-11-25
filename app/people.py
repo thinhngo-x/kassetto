@@ -151,7 +151,7 @@ def public(u):
     c = cfg()
     own, _, via = lb_account(u)
     return {"user": u, "name": name(u), "owner": u == owner(), "can_cast": can_cast(u),
-            "listenbrainz": "own" if via == u and own else (f"as {name(via)}" if via else "off"),
+            "listenbrainz": ("own" if via == u else f"as {name(via)}") if own else "off",   # no LB user set = off
             "blend": [{"user": m, "name": name(m), "weight": w} for m, w in peers(u).items() if m != u],
             "circles": [{"id": k, "name": v.get("name", k), "blend": v.get("blend", 0), "speaker": bool(v.get("speaker")),
                          "members": [{"user": m, "name": name(m)} for m in v.get("members", [])]}
