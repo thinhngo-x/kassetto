@@ -44,8 +44,9 @@ cd app/web && npm run check && npm test && npm run build   # svelte-check, vites
 ```
 CI: `.github/workflows/ci.yml` (the same, plus the dev stack for the smoke tests). Not pushed yet.
 Containers run as `PUID:PGID` (default 1000:1000; `.env`, not in git, holds this machine's values).
-`KASSETTO_REGION=VN docker compose … up -d` turns the regional content on. No sign-in proxy in dev: every request is the owner "admin". A `Remote-User` header acts as that user
-(`curl -H 'Remote-User: alice' …`); people are auto-registered on their first request.
+`KASSETTO_REGION=VN docker compose … up -d` turns the regional content on. No sign-in proxy in dev (`KASSETTO_AUTH=dev`): every request is the owner "admin". A `Remote-User` header acts as
+that user (`curl -H 'Remote-User: alice' …`); people are auto-registered on their first request. To try the real
+modes: `KASSETTO_AUTH=proxy KASSETTO_TRUSTED_PROXIES=172.16.0.0/12 docker compose … up -d` (docs/sign-in.md).
 
 ## Layout
 
@@ -63,6 +64,7 @@ app/
     cast            Nest / Chromecast via castplayer.py, sleep timer, speaker tuning, the speaker's audio stream
     routines        morning routines proxy (optional external service)
     autoeq, web     headphone EQ profiles; page, assets, service worker, manifest, icons
+    auth            sign-in modes (KASSETTO_AUTH none / proxy / dev), the audio port's stream tokens
     main            middleware (who is listening), routes, startup, ports 8090 + 8091
   recsys/           the recommender package (overview in recsys/__init__.py)
     core            DB, who is listening (contextvar USER, people weights), normalisation, listen_weight
@@ -134,15 +136,11 @@ losing data.
 4. [x] **Split app.py** (2026-11-25) into `server/` (see Layout), mechanically: same code, cross-module imports,
    no cycles. Verified with the smoke tests incl. the network ones (search, feeds, radio, autoplay, artist / album,
    lyrics, a real download + stream).
-5. [ ] **Sign-in modes**, documented:
-   - (a) single user, no proxy: ignore `Remote-User` entirely. Say plainly that anyone who reaches the port is the
-     owner (optional password?);
-   - (b) behind an auth proxy (Authelia, Authentik, oauth2-proxy). Configurable header name, and **required**
-     trusted proxy networks; reject the header from anywhere else. Both ports bind 0.0.0.0 today.
-   - Today the header is trusted blindly, and no header = owner.
-   - **Audio-only port 8091 has no sign-in at all**: anyone on the LAN can hit `/stream/{vid}` and `/prefetch/{vid}`
-     and make the server download from YouTube. At a minimum, serve only tracks already cached or queued for the
-     speaker; better, a per-session token in the stream URL.
+5. [x] **Sign-in modes** (2026-11-25; `server/auth.py`, `docs/sign-in.md`): `none` (default, header ignored),
+   `proxy` (configurable header, required `KASSETTO_TRUSTED_PROXIES`, 401/403 otherwise), `dev` (compose only, warns).
+   Port 8091: `/stream` + `/prefetch` need an HMAC token (key in kv `stream_key`; castplayer signs its URLs).
+   Tested in all modes on the dev stack. Not done: an optional password for mode `none` (decide later; a proxy is
+   the answer for now). Not yet tried on a real speaker (needs the owner's OK; item 6).
 6. [ ] **Cast in the app.**
    - `castplayer.py` → the `cast` module (see 4).
    - Discover speakers with mDNS (pychromecast discovery) and let the user pick one. mDNS doesn't cross Docker's

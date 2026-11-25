@@ -24,3 +24,9 @@ DB = _db_path()
 CACHE = env("CACHE", "/data/cache")
 EMBED_URL = env("EMBED_URL", "http://kassetto-embed:8099").rstrip("/")
 USER_AGENT = "Kassetto/0.1 (self-hosted music player)"
+
+
+def stream_token(key, vid):
+    """Token for the audio-only port: /stream/<vid>?t=… (the speaker can't sign in, so its URLs carry this)."""
+    import hashlib, hmac
+    return hmac.new(key.encode(), vid.encode(), hashlib.sha256).hexdigest()[:24]

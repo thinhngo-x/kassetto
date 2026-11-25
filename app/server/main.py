@@ -9,6 +9,7 @@ import recommend as rec
 import spotify as sp
 from aiohttp import ClientSession, ClientTimeout, web
 
+from . import auth
 from .autoeq import api_eq_profile, api_eq_search
 from .cast import api_nest, api_nest_sleep, api_nest_status, api_speaker, nest_stream, speaker_cfg, speaker_version
 from .catalogue import (
@@ -56,9 +57,11 @@ async def on_stop(app):
 
 @web.middleware
 async def errors(req, handler):
-    user = (req.headers.get("Remote-User") or people.owner()).strip().lower()
+    if req.path in auth.OPEN_PATHS:
+        return await handler(req)
+    user, display = auth.identify(req)                         # sign-in mode: server/auth.py
     if user not in people.cfg()["people"]:                     # first visit: a person with their own taste
-        await off(people.register, user, req.headers.get("Remote-Name"))
+        await off(people.register, user, display)
     token = rec.USER.set(user)
     try:
         return await handler(req)
@@ -73,7 +76,18 @@ async def errors(req, handler):
         rec.USER.reset(token)
 
 
+@web.middleware
+async def speaker_only(req, handler):
+    """The audio-only port: /stream and /prefetch need the speaker's token (auth.check_stream_token)."""
+    if req.path.startswith(("/stream/", "/prefetch/")):
+        auth.check_stream_token(req)
+    return await handler(req)
+
+
 def main():
+    warn = auth.check_config()
+    if warn:
+        log("WARNING", warn)
     app = web.Application(middlewares=[errors])
     app.on_startup.append(on_start)
     app.on_cleanup.append(on_stop)
@@ -98,7 +112,7 @@ def main():
         web.get("/api/weekly", api_weekly), web.get("/api/people", api_people), web.put("/api/people", api_people), web.get("/api/concerts", api_concerts), web.get("/api/stats", api_stats), web.get("/api/spotify", api_spotify), web.post("/api/spotify", api_spotify), web.get("/api/together", api_together),
         web.get("/api/routines", api_routines), web.put("/api/routines", api_routines), web.post("/api/routines/{rid}/run", api_routines), web.get("/api/speaker", api_speaker), web.post("/api/speaker", api_speaker),
     ])
-    log(f"kassetto listening on :8090 ({len(people.lb_accounts())} ListenBrainz account(s)), audio-only for the Nest on :8091")
+    log(f"kassetto listening on :8090 (sign-in: {auth.MODE}, {len(people.lb_accounts())} ListenBrainz account(s)), audio-only for the Nest on :8091")
 
     async def prefetch_plain(req):
         vid = req.match_info["vid"]
@@ -111,7 +125,7 @@ def main():
         return web.Response(text="ok")
 
     async def both():
-        audio = web.Application()
+        audio = web.Application(middlewares=[speaker_only])
         audio.add_routes([web.get(r"/stream/{vid}", nest_stream), web.get(r"/prefetch/{vid}", prefetch_plain),
                           web.post("/routine/play", routine_play)])
         r1, r2 = web.AppRunner(app, access_log=None), web.AppRunner(audio, access_log=None)

@@ -1,5 +1,6 @@
 """Morning routines: an optional external routines service schedules them; Kassetto plays the music step."""
 import asyncio
+import hmac
 import random
 import time
 
@@ -88,7 +89,7 @@ async def play_source(a, reason):
 
 async def routine_play(req):                                     # audio-only port, called by routines.py
     k = _routines_key()
-    if not k or req.headers.get("X-Routines-Key", "") != k:
+    if not k or not hmac.compare_digest(req.headers.get("X-Routines-Key", ""), k):
         raise web.HTTPForbidden()
     b = await req.json()
     src = b.get("source") or {"kind": "mix"}

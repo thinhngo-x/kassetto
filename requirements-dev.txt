@@ -1,4 +1,5 @@
 # Tests and lint (the app's own dependencies are pinned in app/Dockerfile).
 numpy==2.5.5
+aiohttp==3.14.5
 pytest==9.0.1
 ruff==0.17.6

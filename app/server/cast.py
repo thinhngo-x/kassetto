@@ -24,7 +24,9 @@ MUSIC_PY = os.environ.get("MUSIC_PY", "/app/castplayer.py")
 # ---------- Nest / Chromecast (via castplayer.py) ----------
 
 def music(*args):
-    r = subprocess.run([sys.executable, MUSIC_PY, *args], capture_output=True, text=True, timeout=60)
+    from .auth import stream_key                                 # castplayer signs its audio-port URLs with it
+    r = subprocess.run([sys.executable, MUSIC_PY, *args], capture_output=True, text=True, timeout=60,
+                       env={**os.environ, "KASSETTO_STREAM_KEY": stream_key()})
     return (r.stdout + r.stderr).strip()
 
 

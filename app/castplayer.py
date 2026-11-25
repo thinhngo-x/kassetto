@@ -22,7 +22,13 @@ import yt_dlp
 SPEAKER_IP = os.environ.get("NEST_IP", "")
 STATE = "/tmp/nestmusic.json"
 RADIO_MAX = 40
-STREAM_BASE = os.environ.get("MUSIC_STREAM_BASE")   # e.g. http://<this server>:8091 = ytm's cache (set inside ytm)
+STREAM_BASE = os.environ.get("MUSIC_STREAM_BASE")   # e.g. http://<this server>:8091 = Kassetto's audio-only port
+STREAM_KEY = os.environ.get("KASSETTO_STREAM_KEY", "")   # set by the app (server/auth.py): signs the URLs below
+
+
+def signed(path, vid):
+    import hashlib, hmac
+    return f"{STREAM_BASE}/{path}/{vid}?t=" + hmac.new(STREAM_KEY.encode(), vid.encode(), hashlib.sha256).hexdigest()[:24]
 class _Log:                          # yt-dlp: errors only (hides the "Python 3.10 deprecated" notice)
     def debug(self, m): pass
     def info(self, m): pass
@@ -114,7 +120,7 @@ def run():
         st["index"] = i; save_state(st)
         try:
             if STREAM_BASE:                                       # ytm downloads + serves it (copes with 403s)
-                url = f"{STREAM_BASE}/stream/{vid}"
+                url = signed("stream", vid)
                 try:                                              # Opus (.webm) or older AAC file: ask ytm
                     with urllib.request.urlopen(urllib.request.Request(url, method="HEAD"), timeout=45) as r:
                         mime = r.headers.get("Content-Type", "audio/webm").split(";")[0]
@@ -123,7 +129,7 @@ def run():
                 artist, thumb = (meta + ["", ""])[:2]
                 if i + 1 < len(st["queue"]):
                     try:
-                        urllib.request.urlopen(f"{STREAM_BASE}/prefetch/{st['queue'][i + 1][0]}", timeout=3).read()
+                        urllib.request.urlopen(signed("prefetch", st['queue'][i + 1][0]), timeout=3).read()
                     except Exception:
                         pass
             else:

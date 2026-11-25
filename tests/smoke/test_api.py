@@ -82,8 +82,14 @@ def test_nest_status_is_quick_without_a_speaker(api):
     assert time.time() - t < 2
 
 
-def test_audio_port_rejects_bad_ids(api):
-    assert api("GET", "/stream/not-a-video-id-at-all", base=AUDIO).status in (400, 404)
+def test_audio_port_needs_the_speaker_token(api):
+    """Nobody on the LAN can make the server download through the speaker's port."""
+    for path in (f"/stream/{VID}", f"/prefetch/{VID}", f"/stream/{VID}?t=0123456789abcdef01234567"):
+        assert api("GET", path, base=AUDIO).status == 403, path
+
+
+def test_health_is_open(api):
+    assert api("GET", "/healthz").status == 200
 
 
 @pytest.fixture(scope="module")
