@@ -4,7 +4,8 @@ A self-hosted music player with a recommender that learns *you*. It plays YouTub
 own server (no ads, no Google account), works out what you like from what you finish, skip and pass over, and
 tells you why it picked each song.
 
-**Status:** pre-release, working towards v0.1.
+**Status:** v0.1, the first public release. It works day to day; expect rough edges (see
+[docs/backlog.md](docs/backlog.md) for what's known).
 
 > [!WARNING]
 > **Personal use only.** Kassetto plays music from YouTube Music's public catalogue by downloading it to your
