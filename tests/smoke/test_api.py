@@ -86,7 +86,60 @@ def test_audio_port_rejects_bad_ids(api):
     assert api("GET", "/stream/not-a-video-id-at-all", base=AUDIO).status in (400, 404)
 
 
+@pytest.fixture(scope="module")
+def a_song():
+    """A song from a real search (needs YouTube)."""
+    from conftest import call
+    r = call("GET", "/api/search?q=beethoven%20moonlight%20sonata", timeout=40)
+    assert r.status == 200
+    songs = [x for x in r.json() if x.get("type") == "song" and x.get("videoId")]
+    assert songs, r.json()[:3]
+    return songs[0]
+
+
 @pytest.mark.network
-def test_search(api):
-    r = api("GET", "/api/search?q=beethoven", timeout=40)
-    assert r.status == 200 and r.json()
+def test_search(a_song):
+    assert a_song["title"] and a_song["artist"]
+
+
+@pytest.mark.network
+@pytest.mark.parametrize("path", ["/api/home", "/api/foryou", "/api/suggest?q=beeth", "/api/search2?q=beethoven",
+                                  "/api/eq/search?q=sennheiser"])
+def test_feeds(api, path):
+    r = api("GET", path, timeout=60)
+    assert r.status == 200, r.body[:300]
+    r.json()
+
+
+@pytest.mark.network
+def test_song_pages(api, a_song):
+    v = a_song["videoId"]
+    for path in (f"/api/radio?videoId={v}", f"/api/versions?id={v}",
+                 f"/api/lyrics?videoId={v}&title=Moonlight%20Sonata&artist=Beethoven&duration=300"):
+        r = api("GET", path, timeout=60)
+        assert r.status == 200, (path, r.body[:300])
+
+
+@pytest.mark.network
+def test_autoplay_explains_its_picks(api, a_song):
+    picks = api("GET", f"/api/autoplay?seed={a_song['videoId']}", user=person(), timeout=90).json()
+    assert picks and all(p.get("why") for p in picks)
+
+
+@pytest.mark.network
+def test_artist_and_album(api, a_song):
+    art = api("GET", "/api/search?q=daft%20punk&filter=artists", timeout=40).json()[0]
+    a = api("GET", f"/api/artist?id={art['id']}", timeout=40)
+    assert a.status == 200, a.body[:200]
+    alb = api("GET", "/api/search?q=discovery%20daft%20punk&filter=albums", timeout=40).json()[0]
+    assert api("GET", f"/api/album?id={alb['id']}", timeout=40).status == 200
+
+
+@pytest.mark.network
+def test_audio_streams(api, a_song):
+    """Download through yt-dlp and serve the first bytes (Range)."""
+    import urllib.request
+    from conftest import BASE
+    req = urllib.request.Request(f"{BASE}/stream/{a_song['videoId']}", headers={"Range": "bytes=0-1023"})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        assert r.status in (200, 206) and len(r.read()) > 0

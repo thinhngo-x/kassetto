@@ -51,9 +51,19 @@ Containers run as `PUID:PGID` (default 1000:1000; `.env`, not in git, holds this
 
 ```
 app/
-  app.py            aiohttp server (~2,000 lines; splitting it is on the checklist): API, streaming + download
-                    queue, look-ahead resolver, lyrics, home feed, mixes, Daily Mixes, weekly lists, Nest/Cast,
-                    routines proxy, sound profile + speaker tuning endpoints, people & circles, stats
+  app.py            entry point (`python app.py` -> server.main)
+  server/           the aiohttp server, in layers (a module imports only from the ones above it):
+    common          YouTube Music clients, log, off() (blocking work off the loop), HTTP client, result -> song dicts
+    streaming       download queue + workers, cache (served while downloading), look-ahead resolver, loudness data
+    catalogue       search (+ search2: library, Spotify history, vibe), suggest, home feed, radio, album / playlist /
+                    artist, versions, lyrics, image proxy
+    mixes           autoplay, Your mix, Made for you, ListenBrainz playlists, Daily Mixes, weekly lists
+    listening       events -> recsys, ListenBrainz scrobble + sync, /api/me, likes, prefs, taste, Spotify setting
+    playlists, circles   your playlists; people & circles (owner only), stats, together, concerts
+    cast            Nest / Chromecast via castplayer.py, sleep timer, speaker tuning, the speaker's audio stream
+    routines        morning routines proxy (optional external service)
+    autoeq, web     headphone EQ profiles; page, assets, service worker, manifest, icons
+    main            middleware (who is listening), routes, startup, ports 8090 + 8091
   recsys/           the recommender package (overview in recsys/__init__.py)
     core            DB, who is listening (contextvar USER, people weights), normalisation, listen_weight
     events          plays / prefs / signals, boredom (short-term "autoplay isn't holding you")
@@ -121,8 +131,9 @@ losing data.
    1000:1000 with compose `user:` (PUID/PGID); ListenBrainz "off" bug; schema versioning. What an old install must
    check: `docs/upgrading-from-ytm.md`. Kept on purpose: the stored value `plays.source='ytm'`, the API field
    `ytm_plays`. Left for item 6 (Cast): `NEST_IP`, `MUSIC_STREAM_BASE`, `MUSIC_PY`, `/tmp/nestmusic.json`.
-4. [ ] **Split app.py** into modules (streaming, catalogue, mixes, cast, people, settings), as was done for recsys.
-   Before Cast, so `castplayer.py` folds into a `cast` module and not into app.py.
+4. [x] **Split app.py** (2026-11-25) into `server/` (see Layout), mechanically: same code, cross-module imports,
+   no cycles. Verified with the smoke tests incl. the network ones (search, feeds, radio, autoplay, artist / album,
+   lyrics, a real download + stream).
 5. [ ] **Sign-in modes**, documented:
    - (a) single user, no proxy: ignore `Remote-User` entirely. Say plainly that anyone who reaches the port is the
      owner (optional password?);
