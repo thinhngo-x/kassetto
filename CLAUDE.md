@@ -34,6 +34,15 @@ docker compose -f docker-compose.dev.yml --profile embed up -d --build # + sound
 curl http://127.0.0.1:18090/api/me                                     # {"user": "admin", "owner": true, …}
 docker compose -f docker-compose.dev.yml exec ytm python -m recsys.evaluate
 ```
+Tests and lint (Python 3.12 with `pip install -r requirements-dev.txt`, or in a `python:3.12-slim` container):
+```
+ruff check .                              # real-bug rules only (pyproject.toml)
+pytest                                    # tests/unit: recsys on throwaway databases, simulated time
+pytest tests/smoke                        # against the running dev stack; KASSETTO_NETWORK=1 adds YouTube tests
+cd app && python -m recsys.synth          # synthetic listener: learned ranker vs prior, AUC (offline benchmark)
+cd app/web && npm run check && npm test && npm run build   # svelte-check, vitest (skip rules), build
+```
+CI: `.github/workflows/ci.yml` (the same, plus the dev stack for the smoke tests). Not pushed yet.
 No sign-in proxy in dev: every request is the owner "admin". A `Remote-User` header acts as that user
 (`curl -H 'Remote-User: alice' …`); people are auto-registered on their first request.
 
@@ -57,6 +66,7 @@ app/
     search          library search, search re-ranking, vibe search (CLAP text -> audio)
     store, report   small tables; /api/taste
     evaluate        `python -m recsys.evaluate [user]`: AUC of start vs learned weights, per feature, per source
+    synth           synthetic catalogue + listener with a hidden taste, run through rank -> record -> learn
   recommend.py      compatibility shim (`import recommend as rec`)
   library.py        playlists, weekly / daily lists, stats, per-user settings (kv)
   people.py         people + circles (taste blend, speaker owner, concerts), /data/people.json
@@ -65,6 +75,7 @@ app/
   castplayer.py     detached Chromecast/Nest player (copied from the homelab "nestspeak/music.py")
   embed.py          ytm-embed service: ffmpeg loudness/silence analysis, CLAP fingerprints, speaker renders
   web/              Svelte 5 + Vite PWA (views: Home, Search, Detail, Library, Settings, Stats)
+tests/unit, tests/smoke      pytest (see "Run it")
 docker-compose.dev.yml
 ```
 Data (`/data`): `ytm.db` (SQLite: plays, prefs, signals, tracks, emb, impressions, pl/pl_tracks, kv, lyrics,
@@ -90,12 +101,14 @@ recommendations within 10 minutes, without ytm-embed. And the author's install s
 losing data.
 
 1. [x] Clean repo: code only, scrubbed of personal data, AGPL-3.0 `LICENSE`, own history (2026-11-25).
-2. [ ] **Safety net** (all local; pushing CI needs the owner's OK):
-   - API smoke tests against the dev stack;
-   - a synthetic listener / seed dataset (dev-data has 0 plays and 0 impressions, so `recsys.evaluate` and recsys
-     tests have nothing to run on). It serves the unit tests, the evaluation and the quiz work;
-   - unit tests for recsys (rank invariants, learn updates, session, skip rules);
-   - ruff, frontend build + svelte-check, a GitHub Actions workflow.
+2. [x] **Safety net** (2026-11-25; CI written, not pushed): smoke tests, `recsys.synth`, recsys unit tests, skip rules
+   (`web/src/lib/outcome.ts` + vitest), ruff, svelte-check, workflow. Found and fixed: `flow()` could put the
+   same artist twice in a row at the end of a batch. Open findings for the recommender work:
+   - On the synthetic listener the learned ranker only ties the prior (6 seeds x 60 sessions: 33.5 % vs 33.0 %
+     of autoplay picks finished; AUC 0.721 vs 0.710). Learning isn't paying off yet: look at the learning rate,
+     L2, label grading, and which features carry signal.
+   - Within an arm, rank() takes the best-scored candidate however low that score is: a Thompson draw for "cf"
+     served five songs from a genre the listener always skips. Consider a score floor or arm-relative caps.
 3. [ ] **De-homelab + rename.**
    - `ytm` → `kassetto` in the UI title, manifest, service-worker cache names, container/service names, docs, log
      lines and UI copy (`PeopleEditor.svelte` names Authelia). Keep reading the old `YTM_*` variables as fallbacks

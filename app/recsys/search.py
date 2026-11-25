@@ -69,7 +69,7 @@ def rerank_search(songs, q):
         if not qlow and LOW_QUALITY.search(f"{t.get('title')} {t.get('album') or ''}"):
             sc -= 0.8
         scored.append((sc, t))
-    out, title_owner = [], {}
+    out = []
     base = lambda t: norm(re.sub(r"\(.*?\)|\[.*?\]| - .*$", "", t.get("title") or ""))
     first = {}
     for sc, t in sorted(scored, key=lambda x: -x[0]):           # the best-ranked artist "owns" a title; other

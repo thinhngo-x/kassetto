@@ -1,0 +1,24 @@
+# Tooling only (the app itself is built by app/Dockerfile).
+
+[tool.pytest.ini_options]
+pythonpath = ["app"]
+testpaths = ["tests/unit"]
+addopts = "-p no:cacheprovider"
+markers = [
+    "network: needs the internet (YouTube); run with KASSETTO_NETWORK=1",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = ["app/web"]
+
+[tool.ruff.lint]
+# Real-bug rules (pyflakes + syntax errors). The code's style (several statements per line, star imports in
+# recsys, long lines) is deliberate and not linted.
+select = ["F", "E9", "B006", "B008"]
+ignore = ["F403", "F405"]
+
+[tool.ruff.lint.per-file-ignores]
+# recsys modules share one boilerplate import line and re-export through `from .core import *`
+"app/recsys/*" = ["F401"]

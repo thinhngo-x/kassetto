@@ -10,6 +10,7 @@
 // Verified 2026-11-24 on the owner's Android Brave: Web Audio keeps playing (and timers keep firing) when locked.
 import { get, post, store, warmStream } from './api'
 import { large } from './img'
+import { speakerOutcome, trackOutcome, type EndReason } from './outcome'
 import type { NestStatus, Song } from './types'
 import { ui } from './ui.svelte'
 
@@ -517,19 +518,15 @@ class Player {
     else this.queue = this.queue.filter((t, k) => k <= this.idx || t.videoId !== s.videoId)
   }
 
-  /** What a track's end says about it. Only a real choice counts against a song:
-   *  - 'next' (next button / media key) early = skip, sent after 20 s: coming back to it in time cancels it (mis-tap);
-   *  - 'switch' (picked another song / list) early = nothing (you changed your mind, not rejected this one);
-   *  - 'error' (couldn't play) or a song that never became audible (still loading) = nothing. */
-  private finishTrack(reason: 'ended' | 'next' | 'switch' | 'error') {
+  /** What a track's end says about it (rules: trackOutcome in outcome.ts). A skip is sent after 20 s: coming back
+   *  to the song in time cancels it (mis-tap). */
+  private finishTrack(reason: EndReason) {
     const t = this.current
     if (!t || this.nest || this.finished || !this.el.src) return
     this.finished = true
-    if (reason === 'error' || !this.audible) return
     const d = this.el.duration || t.duration || 0, p = this.el.currentTime || 0
-    const early = p < Math.min(30, d * 0.25)
-    const ev = reason === 'ended' || (d && p >= 0.8 * d) ? 'complete' : early ? 'skip' : 'partial'
-    if (ev === 'skip' && reason === 'switch') return
+    const ev = trackOutcome(reason, p, d, this.audible)
+    if (!ev) return
     const body = { ...t, event: ev, played: Math.round(p), duration: Math.round(d) || t.duration }
     if (ev === 'skip') {
       this.flushSkip()
@@ -684,9 +681,9 @@ class Player {
   private nestFinish(stopped = false) {
     const l = this.nestLast
     this.nestLast = null
-    if (!l || !l.dur || l.pos < 1) return
-    const ev = l.pos >= 0.8 * l.dur || l.dur - l.pos < 4 ? 'complete' : l.pos < Math.min(30, l.dur * 0.25) ? 'skip' : 'partial'
-    if (ev === 'skip' && stopped) return
+    if (!l) return
+    const ev = speakerOutcome(l.pos, l.dur, stopped)
+    if (!ev) return
     post('/api/event', { ...l.t, event: ev, played: Math.round(l.pos), duration: Math.round(l.dur) }).catch(() => {})
     if (ev === 'complete' && !this.scrobbled && l.dur > 30) {     // ended between two polls before the halfway check
       post('/api/listen', { ...l.t, type: 'single', listened_at: Math.floor(Date.now() / 1000 - l.pos) }).catch(() => {})

@@ -80,7 +80,6 @@ def silhouette(X, lab):
 def sound_model():
     """-> {clusters: [(centroid, weight, [vids])], neg: vector|None, mu, sd} or None (not enough data)."""
     E = embeddings()
-    now = time.time()
     with db() as c:
         likes = mine_or_peers(c.execute("SELECT video_id, pref, user FROM prefs").fetchall(), 2)
     pos, neg = {}, {}

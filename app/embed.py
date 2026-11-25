@@ -11,7 +11,7 @@ integrated loudness + true peak (volume levelling) and where the sound starts / 
 crossfades). ytm asks for it right after a download (POST /analyze); the main loop backfills the rest.
 Runs niced with 2 torch threads so the TTS / other services stay responsive.
 """
-import os, sqlite3, subprocess, sys, tempfile, threading, time
+import os, sqlite3, subprocess, tempfile, threading, time
 
 LOCK = threading.Lock()                # one torch call at a time (audio loop vs text requests)
 
@@ -119,7 +119,6 @@ def speaker_version(vid, p):
     out = os.path.join(CACHE, f"{vid}.spk-{key}.webm")
     if os.path.exists(out):
         os.utime(out); return out
-    import re as _re
     chain = ",".join([
         "pan=mono|c0=0.5*c0+0.5*c1",
         "highpass=f=70:poles=2",

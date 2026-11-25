@@ -29,6 +29,7 @@ LOCK = threading.Lock()
 def db():
     c = sqlite3.connect(DB, timeout=10)
     c.execute("PRAGMA journal_mode=WAL")
+    c.execute("PRAGMA synchronous=NORMAL")                    # safe with WAL; no fsync on every commit
     return c
 
 

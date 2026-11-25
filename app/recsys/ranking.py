@@ -170,4 +170,17 @@ def flow(chosen, start=None):
         rest.remove(x); out.append(x)
         if x["vec"] is not None:
             prev = x["vec"]
+    return _no_repeat(out)
+
+
+def _no_repeat(out):
+    """The greedy pass can run out of other artists near the end: move a same-artist neighbour to a place where it
+    sits between two other artists."""
+    art = lambda i: out[i]["art"] if 0 <= i < len(out) else None
+    for i in range(1, len(out)):
+        if not out[i]["art"] or out[i]["art"] != art(i - 1):
+            continue
+        x = out.pop(i)
+        j = next((j for j in range(len(out) + 1) if x["art"] not in (art(j - 1), art(j))), None)
+        out.insert(i if j is None else j, x)
     return out

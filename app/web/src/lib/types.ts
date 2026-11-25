@@ -33,7 +33,8 @@ export interface Detail {
   thumb?: string | null
   tracks: Song[]
   albums?: Item[]
-  meta?: { id: string; owner: string; shared: boolean; kind: 'user' | 'weekly' | 'daily'; mine: boolean }
+  meta?: { id: string; owner: string; shared: boolean; circle?: string | null; circle_name?: string | null
+          kind: 'user' | 'weekly' | 'daily'; mine: boolean }
 }
 
 export interface Taste {

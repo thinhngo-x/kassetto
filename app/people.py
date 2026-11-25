@@ -148,7 +148,6 @@ def concerts_circle():
 
 def public(u):
     """What the page needs to know about the viewer."""
-    c = cfg()
     own, _, via = lb_account(u)
     return {"user": u, "name": name(u), "owner": u == owner(), "can_cast": can_cast(u),
             "listenbrainz": ("own" if via == u else f"as {name(via)}") if own else "off",   # no LB user set = off
