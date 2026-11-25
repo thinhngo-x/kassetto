@@ -30,6 +30,7 @@ def music(*args):
     return (r.stdout + r.stderr).strip()
 
 
+SPEAKER_IP = os.environ.get("NEST_IP", "")                       # discovery replaces it (milestone item 6)
 NEST = {"cc": None}
 NEST_LOCK = threading.Lock()
 
@@ -59,7 +60,9 @@ def nest_cc():
                     cc.disconnect(timeout=2)
                 except Exception:
                     pass
-            cc = pychromecast.get_chromecast_from_host((os.environ.get("NEST_IP", ""), 8009, None, None, None),
+            if not SPEAKER_IP:
+                raise RuntimeError("no speaker set up")
+            cc = pychromecast.get_chromecast_from_host((SPEAKER_IP, 8009, None, None, None),
                                                        tries=2, timeout=8)
             cc.wait(timeout=8)
             fix_stale_status(cc.media_controller)
@@ -77,10 +80,12 @@ def _nest_status():
         running = bool(pid) and (os.kill(pid, 0) is None)
     except OSError:
         running = False
-    out = {"active": running, "sleep_at": NEST_SLEEP["at"] or None}
+    out = {"active": running, "sleep_at": NEST_SLEEP["at"] or None, "configured": bool(SPEAKER_IP)}
     if running and st.get("queue"):
         i = st.get("index", 0)
         out.update(index=i, videoId=st["queue"][i][0], title=st.get("title"))
+    if not SPEAKER_IP:                                           # nothing to ask (was an 8 s connect timeout)
+        return out
     try:
         cc = nest_cc(); ms = cc.media_controller.status
         try:

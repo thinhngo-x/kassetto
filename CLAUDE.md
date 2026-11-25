@@ -147,7 +147,7 @@ losing data.
      bridge network: document `network_mode: host`, and keep `NEST_IP` as a manual fallback.
    - `MUSIC_STREAM_BASE` must be a LAN address the speaker can reach; it can't be auto-detected reliably inside a
      container. Document it, and the audio-only port (8091).
-   - `/api/nest/status` takes 8 s when no speaker is configured: short-circuit it.
+   - [x] `/api/nest/status` took 8 s when no speaker is configured: short-circuited (`configured: false`).
    - Speaker tuning (embed `/speaker`) and the Nest sleep timer already exist.
 7. [ ] **Degrade gracefully:** verified 2026-11-25 that the app works without ytm-embed. Still to check:
    - without ListenBrainz;

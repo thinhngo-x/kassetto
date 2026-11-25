@@ -75,11 +75,10 @@ def test_routines_off_without_the_service(api):
     assert api("GET", "/api/routines").json()["available"] is False
 
 
-@pytest.mark.xfail(reason="milestone item 6: /api/nest/status waits ~8 s when no speaker is configured", strict=True)
 def test_nest_status_is_quick_without_a_speaker(api):
     t = time.time()
-    api("GET", "/api/nest/status")
-    assert time.time() - t < 2
+    st = api("GET", "/api/nest/status").json()
+    assert time.time() - t < 2 and st["configured"] is False and st["active"] is False
 
 
 def test_audio_port_needs_the_speaker_token(api):
