@@ -103,7 +103,8 @@ losing data.
 1. [x] Clean repo: code only, scrubbed of personal data, AGPL-3.0 `LICENSE`, own history (2026-11-25).
 2. [x] **Safety net** (2026-11-25; CI written, not pushed): smoke tests, `recsys.synth`, recsys unit tests, skip rules
    (`web/src/lib/outcome.ts` + vitest), ruff, svelte-check, workflow. Found and fixed: `flow()` could put the
-   same artist twice in a row at the end of a batch. Open findings for the recommender work:
+   same artist twice in a row at the end of a batch. Open findings for the recommender work (filed in
+   `docs/backlog.md`, to become GitHub issues):
    - On the synthetic listener the learned ranker only ties the prior (6 seeds x 60 sessions: 33.5 % vs 33.0 %
      of autoplay picks finished; AUC 0.721 vs 0.710). Learning isn't paying off yet: look at the learning rate,
      L2, label grading, and which features carry signal.
