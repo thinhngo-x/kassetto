@@ -19,6 +19,7 @@ them all with comments). All are optional. Older installs: each `KASSETTO_X` als
 | `KASSETTO_CACHE_MB` | `3000` | audio cache size |
 | `KASSETTO_TARGET_LUFS` | `-14` | loudness levelling target (with the embed service) |
 | `KASSETTO_YTDLP_UPDATE` | off | `1`: the newest yt-dlp at start, into `data/.yt-dlp` |
+| `KASSETTO_EXPLORE` | `0.3` | how much the recommender tries what it's unsure of (Thompson draw scale; `0` = never) |
 | `KASSETTO_SPEAKER` | — | a fixed Cast speaker address ([cast.md](cast.md)) |
 | `KASSETTO_SPEAKER_NAME` | `Speaker` | its display name |
 | `KASSETTO_STREAM_BASE` | guessed with host networking | how the speaker reaches port 8091, e.g. `http://192.168.1.10:8091` |

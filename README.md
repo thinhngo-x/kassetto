@@ -44,9 +44,10 @@ runs on your server, on your data, and shows its reasoning.
 - **It hears the music** (optional sound service): CLAP audio fingerprints cluster your favourites by sound, find
   "sounds like you" songs, order a mix so each song flows into the next, and power vibe search ("rainy day piano").
 - **It adapts its own weights to you.** Every pick is logged with the features it was scored on; outcomes train a
-  per-person model (online logistic regression, pulled towards the hand-tuned start so a few odd evenings don't undo
-  it). A bandit learns which sources (similar songs, your favourites' radios, collaborative filtering, sound, new
-  artists) work for you, and a boredom signal leans away from the familiar when autoplay keeps losing you.
+  per-person model: Bayesian pairwise ranking (it learns which of two picks you'd rather keep), starting from the
+  hand-tuned weights so a few odd evenings don't undo them, with Thompson sampling to try what it's unsure of. The
+  source of each song (similar songs, your favourites' radios, collaborative filtering, sound, new artists) is part
+  of the model, and a boredom signal leans away from the familiar when autoplay keeps losing you.
 - **Every pick says why:** "Because you like …", "Sounds like …", "New artist for you · close to …", "Listeners with
   your taste play this".
 - **It's measured.** `python -m recsys.evaluate` reports how well the learned weights predict what you finish, and

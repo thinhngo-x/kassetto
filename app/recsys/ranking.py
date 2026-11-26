@@ -3,7 +3,7 @@ import json, math, os, random, re, sqlite3, threading, time, unicodedata, urllib
 import numpy as np
 
 from .core import *  # noqa
-from .bandit import ARMS, bandit
+from .bandit import ARMS
 from .events import boredom, prefs
 from .sound import embeddings, enqueue, sound_model, sound_score, sounds_like, track_meta_put
 from .taste import taste
@@ -32,15 +32,17 @@ def _clean_title(t):
 
 
 def rank(seed_radio, anchor_radios, cf_songs, exclude, n=25, extra=None, hour=None, sound=True, ctx="rank", flow_from=None):
-    """Candidates from several sources -> features -> learned score -> each slot goes to the source (arm) that wins a
-    Thompson draw (diversity, familiarity cap, boredom) -> ordered for flow. Each pick says why ("because …")."""
+    """Candidates from several sources -> features (incl. the source) -> score under weights drawn from the learned
+    posterior (Thompson sampling) -> best first, within the diversity rules (artist caps, familiarity cap, boredom)
+    -> ordered for flow. Each pick says why ("because …")."""
     aff, vids, _ = taste(hour)
     pref = prefs()
     E = embeddings()
     model = sound_model()
     b = boredom()                                                # 0..1: lean away from the familiar when high
     sp = sess.profile()                                          # this listening session
-    w, _ = learn.weights()
+    w, _ = learn.weights()                                       # posterior means: the logged score
+    ws = learn.sample()                                          # a Thompson draw: this ranking's weights
     cand = {}
 
     def add(lst, weight, source):
@@ -77,15 +79,18 @@ def rank(seed_radio, anchor_radios, cf_songs, exclude, n=25, extra=None, hour=No
         snd = sound_score(model, vec) if model and vec is not None else 0.0
         if vec is None:
             missing.append((v, c["sim"]))
-        f = {"bias": 1.0, "sim": c["sim"], "aff": math.tanh(a / 3), "snd": snd, "sess": sess.sess_score(sp, vec),
-             "sess_art": sess.sess_artist(sp, arts), "new_artist": 0.0 if known_artist else 1.0,
-             "recent": min(3, s.get("recent", 0)), "skips": min(2.0, s.get("skips", 0)), "liked": 1.0 if pref.get(v) == 1 else 0.0}
-        base = learn.score(f, w)
-        # boredom reshapes the learned score for now (less similarity / familiarity, more new artists, more chance)
-        score = (base - b * (0.4 * w["sim"] * f["sim"] + 0.5 * w["aff"] * f["aff"]) + 0.5 * b * f["new_artist"]
-                 + random.uniform(0, 0.1 + 0.4 * b))
         familiar = pref.get(v) == 1 or s.get("score", 0) > 0.5
         arm = "familiar" if familiar else ("discovery" if not known_artist else c["src"])
+        f = {"bias": 1.0, "sim": c["sim"], "aff": math.tanh(a / 3), "snd": snd, "sess": sess.sess_score(sp, vec),
+             "sess_art": sess.sess_artist(sp, arts), "new_artist": 0.0 if known_artist else 1.0,
+             "recent": min(3, s.get("recent", 0)), "skips": min(2.0, s.get("skips", 0)), "liked": 1.0 if pref.get(v) == 1 else 0.0,
+             "track": math.tanh(s.get("score", 0.0) / 2),
+             **learn.source_features(arm)}
+        base = learn.score(f, w)
+        # the sampled score decides; boredom reshapes it for now (less similarity / familiarity, more new artists,
+        # more chance)
+        score = (learn.score(f, ws) - b * (0.4 * ws["sim"] * f["sim"] + 0.5 * ws["aff"] * f["aff"])
+                 + 0.5 * b * f["new_artist"] + random.uniform(0, 0.4 * b))
         near = None
         if c["src"] == "sound" and M is not None and vec is not None:
             for j in np.argsort(-(M @ vec))[:4]:                 # nearest favourite that isn't this song (any version)
@@ -101,7 +106,6 @@ def rank(seed_radio, anchor_radios, cf_songs, exclude, n=25, extra=None, hour=No
         if k not in seen_keys:
             seen_keys.add(k); uniq.append(x)
     scored = uniq
-    B = bandit()
     chosen, per_artist, last_artist, fam = [], {}, None, 0
     pool = scored[:]
     while pool and len(chosen) < n:
@@ -109,11 +113,9 @@ def rank(seed_radio, anchor_radios, cf_songs, exclude, n=25, extra=None, hour=No
             if x["art"] and (x["art"] == last_artist or per_artist.get(x["art"], 0) >= (2 if b > 0.5 else 3)):
                 return False
             return not (x["arm"] == "familiar" and fam + 1 > max(1, (0.35 - 0.25 * b) * (len(chosen) + 1)))
-        avail = {x["arm"] for x in pool if ok(x)}
-        if not avail:
+        x = next((x for x in pool if ok(x)), None)              # pool is sorted by the sampled score
+        if x is None:
             break
-        arm = max(avail, key=lambda a: random.betavariate(*B[a]))
-        x = next(x for x in pool if x["arm"] == arm and ok(x))
         pool.remove(x)
         chosen.append(x)
         per_artist[x["art"]] = per_artist.get(x["art"], 0) + 1

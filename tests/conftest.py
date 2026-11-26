@@ -50,7 +50,7 @@ def rs(tmp_path, monkeypatch):
 @pytest.fixture
 def cat(rs):
     """A small synthetic catalogue (6 genres x 5 artists x 8 tracks) with sound vectors, stored in the database."""
-    c = synth.catalogue(np.random.default_rng(0))
+    c = synth.catalogue(np.random.default_rng(0), 6, 5, 8)
     with core.db() as d:
         d.executemany("INSERT INTO tracks VALUES(?,?,?,?,?,?)",
                       [(v, t["title"], t["artist"], "", None, t["duration"]) for v, t in c.items()])

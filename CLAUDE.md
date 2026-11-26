@@ -76,13 +76,14 @@ app/
     taste           long-term taste: artist affinity, track scores, anchors (decay, time of day)
     sound           CLAP embeddings: taste clusters, "sounds like you", Daily Mix groups
     session         this listening session (plays < 30 min apart): sound + artist mood
-    learn           per-person learned ranker: impressions + outcomes -> online logistic regression to a prior
-    bandit          Thompson sampling over candidate sources
+    learn           per-person learned ranker: impressions + outcomes -> Bayesian pairwise ranking (refit per
+                    outcome, prior = hand-tuned weights), Thompson-sampled weights per ranking
+    bandit          keep rate per candidate source (display only; the source is a ranker feature)
     ranking         rank(): candidates -> features -> learned score -> sources/diversity -> flow order -> "because"
     listenbrainz    listens sync, collaborative filtering, LB playlists
     search          library search, search re-ranking, vibe search (CLAP text -> audio)
     store, report   small tables; /api/taste
-    evaluate        `python -m recsys.evaluate [user]`: AUC of start vs learned weights, per feature, per source
+    evaluate        `python -m recsys.evaluate [user]`: AUC as served, start vs learned, per feature, per source
     synth           synthetic catalogue + listener with a hidden taste, run through rank -> record -> learn
   config.py         env(): KASSETTO_<NAME>, else the old YTM_<NAME>; DB path, embed URL (also in the embed image)
   region.py         optional KASSETTO_REGION: charts, local-language feed/shelf, Daily Mix language split
@@ -169,6 +170,17 @@ losing data.
     top), docs/ configuration, privacy (incl. covers loaded by the browser from Google), FAQ, recommender, setups,
     sign-in, cast, upgrading. **Still to do:** screenshots (need a browser to take them), and re-check the quick
     start once the images exist.
+
+## Milestone 2: the recommender (started 2026-11-26)
+
+- [x] Honest measurement: `recsys.synth` paired by seed with a standard error, fixed hash seed, parallel
+  (`--jobs`), 900-song catalogue (240 was exhausted: nothing could help), "AUC as served"; `recsys.evaluate` too.
+  Found: the earlier "learning helps" numbers were noise; the first learner actually hurt (−2.4 ± 1.0).
+- [x] Ranker rework (`recsys/learn.py`): Bayesian pairwise ranking (Laplace, refit per outcome), prior scaled to
+  the data, Thompson sampling (`KASSETTO_EXPLORE`, 0.3), the source and your history with the song as features,
+  best-score-first selection (fixes "a source wins with poor songs"). Learning now +2.1 ± 1.0; +2.5 ± 1.4 over
+  the first version as run. Oracle ceiling ~4–5 points over hand-tuned: next gains are in the candidates.
+- [ ] Next (`docs/backlog.md`): candidate retrieval, diversity as an objective, check on real data.
 
 Not in v0.1 (maybe later):
 - morning routines, i.e. the external service `routines.py` with the spoken briefing; the author's briefing uses

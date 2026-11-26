@@ -3,19 +3,21 @@
   events        what you do -> plays / prefs / signals, boredom
   taste         long-term taste: artist affinity, per-track scores, anchors (decayed, time of day)
   sound         CLAP audio embeddings: clusters, "sounds like you", taste groups
-  bandit        Thompson sampling over recommendation sources
+  bandit        keep rate per recommendation source (shown in /api/taste)
   ranking       candidates -> scored -> picked (diversity, familiarity cap, boredom)
   listenbrainz  listens sync, collaborative filtering, LB playlists
   search        library search, search re-ranking, vibe (text -> audio) search
   store         small tables: track metadata map, liked songs, lyrics cache
   session       short-term intent: this listening session (plays < 30 min apart) -> sound + artist mood
-  learn         the ranker learns you: features logged per pick (impressions), online logistic regression
-                on outcomes, pulled towards the hand-tuned starting weights
-  evaluate      `python -m recsys.evaluate [user]`: AUC of start vs learned weights and each feature
+  learn         the ranker learns you: features logged per pick (impressions), Bayesian pairwise ranking
+                refitted on the outcomes (prior = the hand-tuned weights), Thompson-sampled weights per ranking
+  evaluate      `python -m recsys.evaluate [user]`: AUC as served, start vs learned weights, each feature
+  synth         `python -m recsys.synth`: synthetic listener, learning on vs off (offline benchmark)
   report        /api/taste
 Pipeline (ranking.rank): candidates (seed radio, favourites' radios, ListenBrainz CF, sound neighbours) ->
 features (similarity, artist affinity, sound vs taste, session sound / artist mood, novelty, repeats, skips,
-liked) -> learned score, reshaped by boredom -> Thompson-sampled sources with diversity rules -> flow order
+liked, your history with the song, its source) -> score under sampled learned weights, reshaped by boredom ->
+best first within the diversity rules -> flow order
 (each next song the closest in sound within a few places) -> a specific "because …" per pick.
 
 Original overview:

@@ -4,7 +4,10 @@ import numpy as np
 
 from .core import *  # noqa
 
-# ---------- bandit over sources (Thompson sampling) ----------
+# ---------- sources: keep rate per source ----------
+# A Beta(kept, not kept) count per source, slowly forgetting, shown in /api/taste ("sources"). It used to choose
+# the source of each slot (Thompson sampling), which let a source win with its best song however poor that was;
+# the source is now a feature of the learned ranker (learn.py), which decides per song.
 
 ARMS = {"similar": "similar", "taste": "your taste", "cf": "recommended for you", "sound": "sounds like you",
         "familiar": "you liked this", "discovery": "new for you"}
